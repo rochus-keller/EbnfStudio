@@ -63,7 +63,7 @@ static inline QString _quant( quint8 q, const QString& txt, bool nullable = fals
     {
     case EbnfSyntax::Node::One:
         if( repeatable )
-            return QString("{[} %1").arg(txt);
+            return QString("{ %1").arg(txt);
         else if( nullable )
             return QString("[ %1").arg(txt);
         else

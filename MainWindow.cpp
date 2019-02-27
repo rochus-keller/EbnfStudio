@@ -636,7 +636,6 @@ void MainWindow::createDetails()
     d_errDetails->setSortingEnabled(false);
     d_errDetails->setAllColumnsShowFocus(true);
     d_errDetails->setRootIsDecorated(false);
-    d_errDetails->setColumnCount(2);
     vbox->addWidget(d_errDetails);
     dock->setWidget(pane);
     addDockWidget( Qt::BottomDockWidgetArea, dock );
