@@ -1,0 +1,1962 @@
+//
+// Copyright 2018-2019 Rochus Keller <mailto:me@rochus-keller.ch>
+//
+// This file is part of the Verilog parser library.
+//
+// The following is the license that applies to this copy of the
+// file. For a license to use the file under conditions
+// other than those described here, please email to me@rochus-keller.ch.
+//
+// GNU General Public License Usage
+// This file may be used under the terms of the GNU General Public
+// License (GPL) versions 2.0 or 3.0 as published by the Free Software
+// Foundation and appearing in the file LICENSE.GPL included in
+// the packaging of this file. Please review the following information
+// to ensure GNU General Public Licensing requirements will be met:
+// http://www.fsf.org/licensing/licenses/info/GPLv2.html and
+// http://www.gnu.org/copyleft/gpl.html.
+// 
+
+// Modification steps:
+// Saved pages 517 to 539 from IEEE 1364-2005 into text file using Foxit Reader
+// Removed all page marks and page headers/footers
+// Unidented everything leftwards; continued lines still start with whitespace
+// Commented out all titles
+// Removed Lexer productions
+// Added 'system_name' as common rhs of system_function_identifier and system_task_identifier
+// Commented out PATHPULSE$specify_input_terminal_descriptor$specify_output_terminal_descriptor 
+// See more modification steps marked in the code below
+// 12.04.2018 fully LL(1) but still some indirect left recursion (constant_primary_nlr, 
+//   module_path_primary_nlr and primary_nlr according to ANTLR4)
+// 13.04.2018 corrected standard transfer errors and re-designed primaries; no left recursion
+//   anymore and ANTLR4 can compile the grammar.
+// 14.04.2018 Debugged Syntax using Coco/R
+// 15.04.2018 all FIRST ambiguities removed, in case of module_or_udp_instantiation with quite some effort
+// 19.04.2018 added LL(n) disambiguation predicates formatted as \LA: <term> { <term> }\ or \LL:x\
+// 07.05.2018 added translation_unit to handle both source and libraries with the same lexer/parser
+// kann alle Testergebnisse von VerilogEbnf reproduzieren
+
+
+// A.1 Source text
+
+Verilog05* ::= 
+	{ 
+		// source_text
+		module_declaration 
+		| udp_declaration
+		| config_declaration
+		// library_text
+		| library_declaration 
+		| include_statement 
+	}
+
+
+// A.1.1 Library source text 
+
+// The syntax of a lib.map file is limited to library specifications, include statements, and standard Verilog comment syntax.
+library_text- ::= 
+	{ library_description } 
+
+// merged into toplevel production
+library_description- ::= 
+	library_declaration 
+	| include_statement 
+	| config_declaration 
+
+library_declaration ::= 
+	library library_identifier file_path_spec { ',' file_path_spec }
+	[ '-' incdir file_path_spec { ',' file_path_spec } ] ';' 
+
+include_statement ::= 
+	include file_path_spec ';' 
+
+file_path_spec ::= 
+	identifier | string
+
+// A.1.2 Verilog source text 
+
+source_text- ::= 
+	{ description } 
+
+// merged into toplevel production
+description- ::= 
+	module_declaration 
+	| udp_declaration
+	| config_declaration 
+
+// normalize module_declaration
+module_declaration ::= 
+	{ attribute_instance } 
+	module_keyword module_identifier [ module_parameter_port_list ] 
+		// factored out ()
+		// factored out { module_item } and { non_port_module_item } suffices to only { module_item } which contains the other as an option
+		[ '(' [ list_of_ports | list_of_port_declarations ] ')' ] ';' 
+		{ module_item }
+	endmodule 
+
+module_keyword* ::= 
+	module | macromodule 
+
+
+// A.1.3 Module parameters and ports 
+
+module_parameter_port_list ::= 
+	'#' '(' parameter_declaration { ',' parameter_declaration } ')' 
+
+// moved '()' to module_declaration
+list_of_ports ::=  
+	port { ',' [ port ] } 
+	// es darf hier tatsächlich eine Folge von ,,, kommen da port_expression optional
+
+// normalized list_of_port_declarations; moved '()' to module_declaration; removed [] already present in caller
+list_of_port_declarations ::= 
+	port_declaration { ',' port_declaration }
+
+port ::= 
+	// moved option to caller
+	port_expression
+	| '.' port_identifier '(' [ port_expression ] ')' 
+
+// normalized port_expression; yet another trascription error fixed due to bold/non-bold brace ambiguity
+port_expression ::= 
+	port_reference
+	| '{' port_reference { ',' port_reference } '}'
+
+port_reference ::= 
+	port_identifier [ '[' constant_range_expression ']' ] 
+
+// factored out attribute_instance in port_declaration
+port_declaration* ::= 
+	{ attribute_instance } ( inout_declaration | input_declaration | output_declaration )
+
+
+// A.1.4 Module items 
+
+module_item* ::= 
+	port_declaration ';' 
+	| non_port_module_item 
+
+module_or_generate_item* ::= 
+	{ attribute_instance } module_or_generate_item_declaration 
+	| { attribute_instance } local_parameter_declaration ';' 
+	| { attribute_instance } parameter_override 
+	| { attribute_instance } continuous_assign 
+	| { attribute_instance } gate_instantiation 
+	| \LL:2\ block_identifier ':' concurrent_assertion_statement
+	// NOTE udp_instantiation and module_instantiation kann man auseinanderhalten,
+	// indem man einen Identifier als UDP oder Module wiedererkennt
+	| { attribute_instance } module_or_udp_instantiation
+	// | { attribute_instance } module_instantiation 
+	// | { attribute_instance } udp_instantiation 
+	| { attribute_instance } initial_construct 
+	| { attribute_instance } always_construct 
+	| { attribute_instance } loop_generate_construct 
+	| { attribute_instance } conditional_generate_construct 
+	| { attribute_instance } concurrent_assertion_statement // statt assertion_item 
+	
+module_or_generate_item_declaration* ::= 
+	net_declaration 
+	| reg_declaration 
+	| integer_declaration 
+	| real_declaration 
+	| time_declaration 
+	| realtime_declaration 
+	| event_declaration 
+	| genvar_declaration 
+	| task_declaration 
+	| function_declaration 
+
+non_port_module_item* ::= 
+	module_or_generate_item 
+	| generate_region 
+	| specify_block 
+	| { attribute_instance } parameter_declaration ';' 
+	| { attribute_instance } specparam_declaration 
+
+parameter_override ::= 
+	defparam list_of_defparam_assignments ';' 
+
+
+// A.1.5 Configuration source text 
+
+config_declaration ::= 
+	config config_identifier ';' 
+	design_statement 
+	{ config_rule_statement } 
+	endconfig 
+
+design_statement ::= 
+	design { [ \LL:2\ library_identifier '.' ] cell_identifier } ';' 
+
+config_rule_statement ::= 
+	// vereinfacht, nicht alle kombinationen gültig
+	( default_clause | inst_clause | cell_clause ) ( liblist_clause | use_clause ) ';' 
+
+default_clause ::= 
+	default 
+
+inst_clause ::= 
+	instance inst_name 
+
+inst_name ::= 
+	topmodule_identifier { '.' instance_identifier } 
+
+cell_clause ::= 
+	cell [ \LL:2\ library_identifier '.' ] cell_identifier 
+
+liblist_clause ::= 
+	liblist { library_identifier } 
+
+use_clause ::= 
+	use [ \LL:2\ library_identifier '.' ] cell_identifier [ ':' config ] 
+
+
+// A.2 Declarations 
+
+// A.2.1 Declaration types 
+
+// A.2.1.1 Module parameter declarations 
+
+// normalized local_parameter_declaration
+local_parameter_declaration ::= 
+	localparam ( [ signed ] [ range ] | parameter_type ) list_of_param_assignments 
+
+// normalized parameter_declaration
+parameter_declaration ::= 
+	parameter ( [ signed ] [ range ] | parameter_type ) list_of_param_assignments 
+
+specparam_declaration ::= 
+	specparam [ range ] list_of_specparam_assignments ';' 
+
+parameter_type* ::= 
+	integer | real | realtime | time
+
+
+// A.2.1.2 Port declarations 
+
+inout_declaration ::= 
+	inout [ net_type ] [ signed ] [ range ] list_of_port_identifiers 
+
+input_declaration ::= 
+	input 
+	(
+		[ net_type ] [ signed ] [ range ] list_of_port_identifiers 
+		| reg_or_logic [ signed ] [ range ]  list_of_variable_port_identifiers // SV orig list_of_variable_identifiers
+	)
+
+// normalized output_declaration
+output_declaration ::= 
+	output 
+	( 
+		[ net_type ] [ signed ] [ range ]  list_of_port_identifiers 
+		| reg_or_logic [ signed ] [ range ]  list_of_variable_port_identifiers
+		| output_variable_type list_of_variable_port_identifiers 
+	)
+
+// A.2.1.3 Type declarations 
+
+event_declaration ::= 
+	event list_of_event_identifiers ';' 
+
+integer_declaration ::= 
+	integer list_of_variable_identifiers ';' 
+
+// merged list_of_net_decl_assignments and list_of_net_identifiers
+list_of_net_decl_assignments_or_identifiers ::=
+	net_identifier [ dimension { dimension } | '=' expression ] 
+	{ ',' net_identifier [ dimension { dimension } | '=' expression ] }
+
+// normalized net_declaration
+net_declaration ::= 
+	( net_type | trireg )
+	[ \LL:2\ drive_strength ] [ charge_strength ] [ vectored | scalared ] [ signed ] [ range ] [ delay3 ] 
+	list_of_net_decl_assignments_or_identifiers ';' 
+
+real_declaration ::= 
+	real list_of_real_identifiers ';' 
+
+realtime_declaration ::= 
+	realtime list_of_real_identifiers ';' 
+
+reg_declaration ::= 
+	reg_or_logic [ signed ] [ range ] list_of_variable_identifiers ';' 
+
+time_declaration ::= 
+	time list_of_variable_identifiers ';' 
+
+
+// A.2.2 Declaration data types 
+
+// A.2.2.1 Net and variable types 
+
+net_type* ::= 
+	supply0 
+	| supply1 
+	| tri | triand | trior | tri0 | tri1 
+	| uwire | wire | wand | wor 
+
+output_variable_type* ::= 
+	integer | time 
+
+// normalized real_type
+real_type ::= 
+	real_identifier ( { dimension } | '=' constant_expression )
+
+// variable_type normalized
+variable_type ::= 
+	variable_identifier ( { dimension } | '=' constant_expression )
+
+
+// A.2.2.2 Strengths 
+
+drive_strength ::= 
+	'(' ( strength0 | strength1 | highz0 | highz1 ) ','
+		( strength1 | strength0 | highz1 | highz0 ) ')' 
+
+strength0* ::= 
+	supply0 | strong0 | pull0 | weak0 
+
+strength1* ::= 
+	supply1 | strong1 | pull1 | weak1 
+
+charge_strength ::= 
+	'(' ( small | medium | large ) ')' 
+
+
+// A.2.2.3 Delays 
+
+// merged delay3, delay2 and delay_control into "delay" (new production)
+delay ::= 
+	'#' [ delay_value ] 
+		[ 
+			'(' mintypmax_expression { ',' mintypmax_expression } ')' 
+			// delay wird of unmittelbar vor expression verwendet; es gibt keine Möglichkeit, zwischen dem Klammerausdruck
+			// und der nachfolgenden Expression zu unterscheiden; darum hier gleich das Postfix von expression
+			{ expression_nlr }
+		]
+
+delay3* ::= 
+	delay
+
+delay2* ::= 
+	delay
+
+// merged unsigned and real_number
+delay_value* ::= 
+	unsigned_or_real_number 
+	| identifier 
+
+
+// A.2.3 Declaration lists 
+
+list_of_defparam_assignments* ::= 
+	defparam_assignment { ',' defparam_assignment } 
+
+list_of_event_identifiers ::= 
+	event_identifier { dimension } { ',' event_identifier  { dimension } } 
+
+// obsolete, merged into caller
+// list_of_net_decl_assignments ::= net_decl_assignment { ',' net_decl_assignment } 
+
+// obsolete, merged into caller
+// list_of_net_identifiers ::= net_identifier { dimension } { ',' net_identifier { dimension } } 
+
+list_of_param_assignments* ::= 
+	param_assignment { \LL:2\ ',' param_assignment } 
+
+list_of_port_identifiers* ::= 
+	port_identifier { \LL:2\ ',' port_identifier } 
+
+list_of_real_identifiers* ::= 
+	real_type { ',' real_type } 
+
+list_of_specparam_assignments* ::= 
+	specparam_assignment { ',' specparam_assignment } 
+
+list_of_variable_identifiers* ::= 	
+	variable_type { ',' variable_type } 
+
+list_of_variable_port_identifiers ::= 
+	port_identifier [ '=' constant_expression ] 
+	// this is embedded in the list_of_port_declarations which also uses COMMA for continuation
+	{ \LL:2\ ',' port_identifier [ '=' constant_expression ] } 
+
+
+// A.2.4 Declaration assignments 
+
+defparam_assignment ::= 
+	hierarchical_parameter_identifier '=' constant_mintypmax_expression 
+
+// obsolete, merged into caller
+// net_decl_assignment ::= net_identifier '=' expression 
+
+param_assignment ::= 
+	parameter_identifier '=' constant_mintypmax_expression 
+
+specparam_assignment ::= 
+	specparam_identifier '=' constant_mintypmax_expression 
+	| pulse_control_specparam 
+
+pulse_control_specparam ::= 
+	PATHPULSE$ '=' '(' reject_limit_value [ ',' error_limit_value ] ')' 
+	// this version is handled by the lexer rendering the PATHPULSE$ token with the full string attached
+//  | PATHPULSE$specify_input_terminal_descriptor$specify_output_terminal_descriptor 
+//                   '=' '(' reject_limit_value [ ',' error_limit_value ] ')' 
+
+error_limit_value* ::= 
+	limit_value 
+
+reject_limit_value* ::= 
+	limit_value 
+
+limit_value* ::= 
+	constant_mintypmax_expression 
+
+
+// A.2.5 Declaration ranges 
+
+dimension ::= 
+	'[' dimension_constant_expression ':' dimension_constant_expression ']' 
+
+range ::= 
+	'[' msb_constant_expression ':' lsb_constant_expression ']' 
+
+
+// A.2.6 Function declarations 
+
+// normalized function_declaration, merged block_item_declaration
+function_declaration ::= 
+	function [ automatic ] [ function_range_or_type ] function_identifier [ '(' function_port_list ')' ] ';' 
+	{ function_item_declaration }
+	function_statement 
+	endfunction 
+
+function_item_declaration* ::= 
+	block_item_declaration 
+	| { attribute_instance } tf_input_declaration ';' 
+
+function_port_list* ::= 
+	{ attribute_instance } tf_input_declaration { ',' { attribute_instance } tf_input_declaration } 
+
+function_range_or_type* ::= 
+	[ signed ] [ range ] 
+	| integer 
+	| real 
+	| realtime 
+	| time 
+
+
+// A.2.7 Task declarations 
+
+// normalized task_declaration
+task_declaration ::= 
+	task [ automatic ] task_identifier [ '(' [ task_port_list ] ')' ] ';' 
+	{ task_item_declaration }
+	statement_or_null 
+	endtask 
+
+task_item_declaration* ::= 
+	block_item_declaration 
+	| { attribute_instance } tf_input_declaration ';' 
+	| { attribute_instance } tf_output_declaration ';' 
+	| { attribute_instance } tf_inout_declaration ';' 
+
+task_port_list* ::= 
+	task_port_item { ',' task_port_item } 
+
+task_port_item* ::= 
+	{ attribute_instance } tf_input_declaration 
+	| { attribute_instance } tf_output_declaration 
+	| { attribute_instance } tf_inout_declaration 
+
+// normalized tf_input_declaration
+tf_input_declaration ::= 
+	input ( [ reg_or_logic ] [ signed ] [ range ] | task_port_type ) list_of_port_identifiers 
+
+// normalized tf_output_declaration
+tf_output_declaration ::= 
+	output ( [ reg_or_logic ] [ signed ] [ range ] | task_port_type ) list_of_port_identifiers 
+
+// normalized tf_inout_declaration
+tf_inout_declaration ::= 
+	inout ( [ reg_or_logic ] [ signed ] [ range ] | task_port_type ) list_of_port_identifiers 
+
+task_port_type* ::= 
+	integer | real | realtime | time 
+
+
+// A.2.8 Block item declarations 
+
+// factored out attribute_instance
+block_item_declaration* ::= 
+	{ attribute_instance }
+	(
+		block_reg_declaration
+		| block_integer_declaration 
+		| block_time_declaration
+		| block_real_declaration
+		| block_realtime_declaration
+		| event_declaration 
+		| local_parameter_declaration ';' 
+		| parameter_declaration ';' 
+	)
+
+// new production from block_item_declaration denormalization
+block_reg_declaration ::=
+	reg_or_logic [ signed ] [ range ] list_of_block_variable_identifiers ';' 
+
+// new production from block_item_declaration denormalization
+block_integer_declaration ::=
+	integer list_of_block_variable_identifiers ';' 
+
+// new production from block_item_declaration denormalization
+block_time_declaration ::= 
+	time list_of_block_variable_identifiers ';' 
+
+// new production from block_item_declaration denormalization
+block_real_declaration ::=
+	real list_of_block_real_identifiers ';' 
+
+// new production from block_item_declaration denormalization
+block_realtime_declaration ::=
+	realtime list_of_block_real_identifiers ';' 
+
+list_of_block_variable_identifiers* ::= 
+	block_variable_type { ',' block_variable_type } 
+
+list_of_block_real_identifiers* ::= 
+	block_real_type { ',' block_real_type } 
+
+block_variable_type ::= 
+	variable_identifier { dimension } 
+
+block_real_type ::= 
+	real_identifier { dimension } 
+
+
+// A.3 Primitive instances 
+
+// A.3.1 Primitive instantiation and instances 
+
+gate_instantiation ::= 
+	cmos_switchtype [ delay3 ] cmos_switch_instance { ',' cmos_switch_instance } ';' 
+	| enable_gatetype [ \LL:2\ drive_strength ] [ delay3 ] enable_gate_instance { ',' enable_gate_instance } ';' 
+	| mos_switchtype [ delay3 ] mos_switch_instance { ',' mos_switch_instance } ';' 
+	| n_input_gatetype [ \LL:2\ drive_strength ] [ delay2 ] n_input_gate_instance { ',' n_input_gate_instance } ';' 
+	| n_output_gatetype [ \LL:2\ drive_strength ] [ delay2 ] n_output_gate_instance { ',' n_output_gate_instance } ';' 
+	| pass_en_switchtype [ delay2 ] pass_enable_switch_instance { ',' pass_enable_switch_instance } ';' 
+	| pass_switchtype pass_switch_instance { ',' pass_switch_instance } ';' 
+	| pulldown [ \LL:2\ pulldown_strength ] pull_gate_instance { ',' pull_gate_instance } ';' 
+	| pullup [ \LL:2\ pullup_strength ] pull_gate_instance { ',' pull_gate_instance } ';' 
+
+cmos_switch_instance ::= 
+	[ name_of_gate_instance ] '(' output_terminal ',' input_terminal ',' ncontrol_terminal ',' pcontrol_terminal ')' 
+
+enable_gate_instance ::= 
+	[ name_of_gate_instance ] '(' output_terminal ',' input_terminal ',' enable_terminal ')' 
+
+mos_switch_instance ::= 
+	[ name_of_gate_instance ] '(' output_terminal ',' input_terminal ',' enable_terminal ')' 
+
+n_input_gate_instance ::= 
+	[ name_of_gate_instance ] '(' output_terminal ',' input_terminal { ',' input_terminal } ')' 
+
+input_or_output_terminal* ::= 
+	expression_2
+
+n_output_gate_instance ::= 
+	[ name_of_gate_instance ] '(' input_or_output_terminal { ',' input_or_output_terminal } ')' 
+	// original [ name_of_gate_instance ] '(' output_terminal { ',' output_terminal } ',' input_terminal ')' 
+
+pass_switch_instance ::= 
+	[ name_of_gate_instance ] '(' inout_terminal ',' inout_terminal ')' 
+
+pass_enable_switch_instance ::= 
+	[ name_of_gate_instance ] '(' inout_terminal ',' inout_terminal ',' enable_terminal ')' 
+
+pull_gate_instance ::= 
+	[ name_of_gate_instance ] '(' output_terminal ')' 
+
+name_of_gate_instance ::= 
+	gate_instance_identifier [ range ] 
+
+
+// A.3.2 Primitive strengths 
+
+// normalized pulldown_strength
+pulldown_strength ::= 
+	'(' ( strength0 | strength1 ) [ ',' ( strength1 | strength0 ) ] ')' 
+
+// normalized pullup_strength
+pullup_strength ::= 
+	'(' ( strength0 | strength1 ) [ ',' ( strength1 | strength0 ) ] ')' 
+
+
+// A.3.3 Primitive terminals 
+
+enable_terminal* ::= 
+	expression 
+
+inout_terminal* ::= 
+	net_lvalue 
+
+input_terminal* ::= 
+	expression 
+
+ncontrol_terminal* ::= 
+	expression 
+
+output_terminal* ::= 
+	net_lvalue 
+
+pcontrol_terminal* ::= 
+	expression 
+
+
+// A.3.4 Primitive gate and switch types 
+
+cmos_switchtype* ::= 
+	cmos | rcmos 
+
+enable_gatetype* ::= 
+	bufif0 | bufif1 | notif0 | notif1 
+
+mos_switchtype* ::= 
+	nmos | pmos | rnmos | rpmos 
+
+n_input_gatetype* ::= 
+	and | nand | or | nor | xor | xnor 
+
+n_output_gatetype* ::= 
+	buf | not 
+
+pass_en_switchtype* ::= 
+	tranif0 | tranif1 | rtranif1 | rtranif0 
+
+pass_switchtype* ::= 
+	tran | rtran 
+
+
+// A.4 Module instantiation and generate construct 
+
+// A.4.1 Module instantiation 
+
+// merged into module_or_udp_instantiation
+module_instantiation- ::= 
+	module_identifier [ parameter_value_assignment ] 
+	module_instance { ',' module_instance } ';' 
+
+// merged into parameter_value_assignment_or_delay2 
+parameter_value_assignment- ::= 
+	'#' '(' list_of_parameter_assignments ')' 
+
+// merged into parameter_value_assignment_or_delay2 
+list_of_parameter_assignments- ::= 
+	ordered_parameter_assignment { ',' ordered_parameter_assignment } 
+	| named_parameter_assignment { ',' named_parameter_assignment } 
+
+// merged into parameter_value_assignment_or_delay2 
+ordered_parameter_assignment- ::= 
+	expression 
+
+named_parameter_assignment ::= 
+	'.' parameter_identifier '(' [ mintypmax_expression ] ')' 
+
+// merged into module_or_udp_instance
+module_instance- ::= 
+	name_of_module_instance '(' [ list_of_port_connections ] ')' 
+
+// merged into module_or_udp_instance
+name_of_module_instance- ::= 
+	module_instance_identifier [ range ] 
+
+// normalized list_of_port_connections merging ordered_port_connection and named_port_connection
+ordered_or_named_port_connection- ::= 
+	{ attribute_instance } [ expression | '.' port_identifier '(' [ expression ] ')' ]
+
+// merged into port_connection_or_output_terminal
+list_of_port_connections- ::= 
+	ordered_or_named_port_connection { ',' ordered_or_named_port_connection } 
+
+
+// A.4.2 Generate construct 
+
+generate_region ::= 
+	generate { module_or_generate_item } endgenerate 
+
+genvar_declaration ::= 
+	genvar list_of_genvar_identifiers ';' 
+
+list_of_genvar_identifiers* ::= 
+	genvar_identifier { ',' genvar_identifier } 
+
+loop_generate_construct ::= 
+	for '(' genvar_initialization ';' genvar_expression ';' genvar_iteration ')' 
+	( generate_block | module_or_generate_item )
+
+genvar_initialization ::= 
+	genvar_identifier '=' constant_expression 
+
+// remove left recursion, normalized expression
+genvar_expression ::= 
+	[ unary_operator { attribute_instance } ] genvar_primary genvar_expression_nlr
+
+// helper to remove left recursion in genvar_expression
+genvar_expression_nlr* ::=
+	[
+		binary_operator { attribute_instance } genvar_expression genvar_expression_nlr
+		| '?' { attribute_instance } genvar_expression ':' genvar_expression genvar_expression_nlr
+	]
+
+genvar_iteration ::= 
+	genvar_identifier '=' genvar_expression 
+
+// replaced genvar_identifier by identifier which is part of constant_primary
+genvar_primary* ::= 
+	constant_primary 
+
+conditional_generate_construct* ::= 
+	if_generate_construct 
+	| case_generate_construct 
+
+if_generate_construct ::= 
+	if '(' constant_expression ')' generate_block_or_null 
+	[ else generate_block_or_null ] 
+
+case_generate_construct ::= 
+	case '(' constant_expression ')' 
+	case_generate_item { case_generate_item } endcase 
+
+case_generate_item ::= 
+	constant_expression { ',' constant_expression } ':' generate_block_or_null 
+	| default [ ':' ] generate_block_or_null 
+
+generate_block ::= 
+	// verschoben nach generate_block_or_null und loop_generate_construct: module_or_generate_item 
+	// |
+	begin [ ':' generate_block_identifier ]  { module_or_generate_item } end 
+
+
+generate_block_or_null* ::= 
+	generate_block 
+	| module_or_generate_item
+	| ';' 
+
+
+// A.5 UDP declaration and instantiation 
+
+// A.5.1 UDP declaration 
+
+// normalized udp_declaration
+udp_declaration ::= 
+	{ attribute_instance } primitive udp_identifier '(' ( udp_port_list | udp_declaration_port_list ) ')' ';' 
+	{ udp_port_declaration } 
+	udp_body 
+	endprimitive 
+
+
+// A.5.2 UDP ports 
+
+udp_port_list ::= 
+	output_port_identifier ',' input_port_identifier { ',' input_port_identifier } 
+
+udp_declaration_port_list ::= 
+	udp_output_declaration ',' udp_input_declaration { ',' udp_input_declaration } 
+
+udp_port_declaration* ::= 
+	udp_output_declaration ';' 
+	| udp_input_declaration ';' 
+	| udp_reg_declaration ';' 
+
+// factored out attribute_instance and output
+udp_output_declaration ::= 
+	{ attribute_instance } output [ reg_or_logic ] port_identifier [ '=' constant_expression ] 
+
+udp_input_declaration ::=  
+	{ attribute_instance } input list_of_port_identifiers 
+
+udp_reg_declaration ::=  
+	{ attribute_instance } reg_or_logic variable_identifier 
+
+
+// A.5.3 UDP body 
+
+// merged combinational_body and sequential_body
+udp_body ::= 
+	[ udp_initial_statement ]
+	table 
+		// original ( combinational_entry { combinational_entry } | sequential_entry  { sequential_entry } )
+		sequential_or_combinatorial_entry { sequential_or_combinatorial_entry }
+	endtable 
+
+// merged into sequential_or_combinatorial_entry, obsolete
+// combinational_entry ::= level_symbol { level_symbol } ':' output_symbol ';' 
+
+udp_initial_statement ::= 
+	initial output_port_identifier '=' init_val ';' 
+
+// merged into sequential_or_combinatorial_entry, obsolete
+// sequential_entry ::= seq_input_list ':' level_symbol ':' next_state ';' 
+
+// merged, modified to remove LL1 ambig of :
+sequential_or_combinatorial_entry ::= 
+	{ level_or_edge_symbol | '(' level_symbol [ level_symbol ] ')' } 
+	// original merged: { level_or_edge_symbol } [ '(' level_symbol [ level_symbol ] ')' ] { level_or_edge_symbol }
+	// wird z.T. als (00) geschrieben, als als nur eine Zahl interpretiert wird
+	':' ( level_symbol | '-' ) [ ':' ( level_symbol | '-' ) ] ';' 
+
+// normalized, merged, obsolete
+//seq_input_list ::= 
+		// original { level_symbol } ( '(' level_symbol level_symbol ')' | edge_symbol ) { level_symbol }  
+//		{ level_or_edge_symbol } [ '(' level_symbol level_symbol ')' ] { level_or_edge_symbol } 
+
+// inserted level_input_list into seq_input_list and combinational_entry
+
+// inserted edge_input_list into seq_input_list
+
+// inserted edge_indicator into edge_input_list
+
+// inserted current_state into sequential_entry
+
+// merged into sequential_or_combinatorial_entry
+output_symbol- ::= 
+	number | identifier
+	// original 0 | 1 | x | X 
+
+next_state- ::= 
+	output_symbol | '-'
+
+level_symbol* ::= 
+	number | identifier | '?'
+	// original 0 | 1 | x | X | '?' | b | B 
+
+edge_symbol- ::= 
+	identifier | '*'
+	// original r | R | f | F | p | P | n | N | '*' 
+
+// merge 
+level_or_edge_symbol* ::= 
+	number | identifier | '?' | '*'
+
+edge_descriptor ::= 
+	( identifier | number ) [ identifier | number ]
+	// original 01 | 10 | ( x | X | z | Z ) ( 0 | 1 ) | ( 0 | 1 ) ( x | X | z | Z )
+
+init_val* ::= 
+	number
+	// original 1'b0 | 1'b1 | 1'bx | 1'bX | 1'B0 | 1'B1 | 1'Bx | 1'BX | 1 | 0 
+
+scalar_constant* ::= 
+	number
+	// original 1'b0 | 1'b1 | 1'B0 | 1'B1 | 'b0 | 'b1 | 'B0 | 'B1 | 1 | 0 
+
+
+// A.5.4 UDP instantiation 
+
+// merged into module_or_udp_instantiation
+udp_instantiation- ::= 
+	udp_identifier [ \LL:2\ drive_strength ] [ delay2 ] udp_instance { ',' udp_instance } ';' 
+
+// merged into module_or_udp_instance
+udp_instance- ::= 
+	[ name_of_udp_instance ] '(' output_terminal ',' input_terminal { ',' input_terminal } ')' 
+
+// merged into module_or_udp_instance
+name_of_udp_instance- ::= 
+	udp_instance_identifier [ range ] 
+
+
+// A.6 Behavioral statements 
+
+// A.6.1 Continuous assignment statements 
+
+continuous_assign ::= 
+	assign [ drive_strength ] [ delay3 ] list_of_net_assignments ';' 
+
+list_of_net_assignments* ::= 
+	net_assignment { ',' net_assignment } 
+
+net_assignment ::= 
+	net_lvalue '=' expression 
+
+
+// A.6.2 Procedural blocks and assignments 
+
+initial_construct ::= 
+	initial statement 
+
+always_construct ::= 
+	always statement 
+
+// obsolete, merged into statement
+// blocking_assignment ::= variable_lvalue '=' [ delay_or_event_control ] expression 
+
+// obsolete, merged into statement
+// nonblocking_assignment ::= variable_lvalue '<=' [ delay_or_event_control ] expression 
+
+// normalized procedural_continuous_assignments
+procedural_continuous_assignments ::= 
+	assign variable_assignment 
+	| deassign variable_lvalue 
+	// merged variable_assignment | net_assignment
+	| force variable_or_net_lvalue '=' expression 
+	// merged variable_lvalue | net_lvalue
+	| release variable_or_net_lvalue
+
+variable_assignment ::= 
+	variable_lvalue '=' expression 
+
+
+// A.6.3 Parallel and sequential blocks 
+
+par_block ::= 
+	fork [ ':' block_identifier { block_item_declaration } ] 
+	{ statement_or_null } join // original nur statement
+
+seq_block ::= 
+	begin [ ':' block_identifier { block_item_declaration } ] 
+	{ statement_or_null } end // original nur statement, aber es gibt Beispiele mit ";;"
+
+
+// A.6.4 Statements 
+
+// merged blocking_assignment, nonblocking_assignment and task_enable
+blocking_or_nonblocking_assignment_or_task_enable ::=
+	// variable_lvalue deckt auch hierarchical_task_identifier ab
+	variable_lvalue 
+	// folgendes aus task_enable:
+	[ '(' expression { ',' expression } ')' ] 
+	// folgendes aus blocking_assignment or nonblocking_assignment
+	// mache expression optional da bereits delay als expression dienen kann
+	[ ( '<=' | '=' ) [ delay_or_event_control ] [ expression ] ]
+	';'
+
+// extracted attribute_instance from options
+statement* ::= 
+	{ attribute_instance } (
+		blocking_or_nonblocking_assignment_or_task_enable
+		|  case_statement 
+		|  conditional_statement 
+		|  disable_statement 
+		|  event_trigger 
+		|  loop_statement 
+		|  par_block 
+		|  procedural_continuous_assignments ';' 
+		|  procedural_timing_control_statement 
+		|  seq_block 
+		|  system_task_enable 
+		|  wait_statement 
+		| procedural_assertion_statement 
+	)
+
+statement_or_null* ::= 
+    statement 
+	| { attribute_instance } ';' 
+
+function_statement* ::=  
+	statement 
+
+
+// A.6.5 Timing control statements 
+
+delay_control* ::= 
+	delay 
+
+delay_or_event_control ::= 
+	delay_control 
+	| event_control 
+	| repeat '(' expression ')' event_control 
+
+// merged hierarchical_task_identifier and hierarchical_block_identifier
+hierarchical_task_or_block_identifier* ::= 
+	hierarchical_identifier
+
+disable_statement ::= 
+	disable hierarchical_task_or_block_identifier ';' 
+
+// normalized event_control
+event_control ::= 
+	'@' (
+			'(' ( event_expression | '*' ) ')' 
+			| '*' 
+			| hierarchical_event_identifier 
+		)
+
+event_trigger ::= 
+	// orig hierarchical_event_identifier { '[' expression ']' }
+	'->' hierarchical_identifier_range ';' 
+
+// removed direct left recursion
+event_expression ::= 
+	expression event_expression_nlr
+	| posedge expression event_expression_nlr
+	| negedge expression event_expression_nlr
+
+// added to remove left recursion from event_expression
+event_expression_nlr* ::= 
+	[ or event_expression event_expression_nlr | ',' event_expression event_expression_nlr ]
+
+
+procedural_timing_control* ::= 
+	delay_control 
+	| event_control 
+
+procedural_timing_control_statement* ::= 
+	procedural_timing_control statement_or_null 
+
+wait_statement ::= 
+	wait '(' expression ')' statement_or_null 
+
+
+// A.6.6 Conditional statements 
+
+// merged if_else_if_statement
+conditional_statement ::= 
+	if '(' expression ')' statement_or_null 
+	// not needed because statement resolves to if when needed
+	// { \LL:3\ else if '(' expression ')' statement_or_null } 
+	[ else statement_or_null ] 
+
+
+// A.6.7 Case statements 
+
+case_statement ::= 
+	// grouped
+	( case | casez | casex ) '(' expression ')' case_item { case_item } endcase 
+
+case_item ::= 
+	expression { ',' expression } ':' statement_or_null 
+	| default [ ':' ] statement_or_null 
+
+
+// A.6.8 Looping statements 
+
+loop_statement ::= 
+	forever statement 
+	| repeat '(' expression ')' statement 
+	| while '(' expression ')' statement 
+	| for '(' variable_assignment ';'  expression ';' variable_assignment ')' statement 
+
+
+// A.6.9 Task enable statements 
+
+system_task_enable ::= 
+	system_task_identifier [ '(' [ expression ] { ',' [ expression ] } ')' ] ';' 
+
+// obsolete, merged into statement
+// task_enable ::= hierarchical_task_identifier [ '(' expression { ',' expression } ')' ] ';' 
+
+
+// A.7 Specify section 
+
+// A.7.1 Specify block declaration 
+
+specify_block ::= 
+	specify { specify_item } endspecify 
+
+specify_item* ::= 
+	specparam_declaration 
+	| pulsestyle_declaration 
+	| showcancelled_declaration 
+	| path_declaration 
+	| system_timing_check 
+
+pulsestyle_declaration ::= 
+	// grouped
+	( pulsestyle_onevent | pulsestyle_ondetect ) list_of_path_outputs ';' 
+
+showcancelled_declaration ::= 
+	// grouped
+	( showcancelled | noshowcancelled ) list_of_path_outputs ';' 
+
+
+// A.7.2 Specify path declarations 
+
+// merged simple and edge_sensitive path declaration
+path_declaration* ::= 
+	simple_or_edge_sensitive_path_declaration ';' 
+	| state_dependent_path_declaration ';' 
+
+// merged parallel_path_description and full_path_description
+
+// factored out list_of_path_inputs
+parallel_or_full_path_description ::=
+	'(' list_of_path_inputs [ polarity_operator ]
+		( 
+			'=>' specify_output_terminal_descriptor 
+			| '*>' list_of_path_outputs 
+		)
+	')'
+
+simple_path_declaration ::= 
+	parallel_or_full_path_description '=' path_delay_value 
+
+list_of_path_inputs* ::= 
+	specify_input_terminal_descriptor { ',' specify_input_terminal_descriptor } 
+
+list_of_path_outputs* ::= 
+	specify_output_terminal_descriptor { ',' specify_output_terminal_descriptor } 
+
+
+// A.7.3 Specify block terminals 
+
+specify_input_terminal_descriptor ::= 
+	input_identifier [ '[' constant_range_expression ']' ] 
+
+specify_output_terminal_descriptor ::= 
+	output_identifier [ '[' constant_range_expression ']' ] 
+
+// merged input_port_identifier and inout_port_identifier
+input_or_inout_port_identifier* ::= 
+	identifier
+
+input_identifier* ::= 
+	input_or_inout_port_identifier  
+
+// merged output_port_identifier and inout_port_identifier
+output_or_inout_port_identifier* ::= 
+	identifier
+
+output_identifier* ::= 
+	output_or_inout_port_identifier 
+
+
+// A.7.4 Specify path delays 
+
+// normalized path_delay_value
+path_delay_value ::= 
+	// [ '(' ] list_of_path_delay_expressions [ ')' ]
+	// die mehrdeutige, geklammerte Variante ersetzen indem constant_primary die Klammer mit Kommas zulässt
+	list_of_path_delay_expressions
+
+// normalized list_of_path_delay_expressions, removed obsolete ones
+list_of_path_delay_expressions* ::= 
+	path_delay_expression { ',' path_delay_expression }
+
+path_delay_expression* ::= 
+	constant_mintypmax_expression 
+
+// merged parallel and full_edge_sensitive_path_description
+// factored out list_of_path_inputs 
+// integrated into simple_or_edge_sensitive_path_declaration
+// parallel_or_full_edge_sensitive_path_description ::=
+
+// merged simple_path_declaration and edge_sensitive_path_declaration
+// integrated parallel_or_full_edge_sensitive_path_description and merged with parallel_or_full_path_description
+simple_or_edge_sensitive_path_declaration ::= 
+	'(' [ edge_identifier ] list_of_path_inputs [ polarity_operator ] 
+		( '=>' [ specify_output_terminal_descriptor ] | '*>' [ list_of_path_outputs ] )
+		// only in parallel_or_full_edge_sensitive_path_description:
+		[ '(' list_of_path_outputs ( ':' | '+:' | '-:' ) data_source_expression ')' ]
+					// original [ polarity_operator ]
+	')' 
+	// TODO: simple_or_edge_sensitive_path_description verwenden statt Redundanz
+	'=' path_delay_value 
+
+// merged simple and edge_sensitive_path_declaration
+simple_or_edge_sensitive_path_description ::=
+	'('
+		[ edge_identifier ] list_of_path_inputs [ polarity_operator ]
+		( '=>' [ specify_output_terminal_descriptor ] | '*>' [ list_of_path_outputs ] )
+		[ '(' list_of_path_outputs ( ':' | '+:' | '-:' ) data_source_expression ')' ]
+					// original [ polarity_operator ]
+	')'
+
+data_source_expression* ::= 
+	expression 
+
+edge_identifier* ::= 
+	posedge | negedge 
+
+// normalized state_dependent_path_declaration
+state_dependent_path_declaration ::= 
+	if '(' module_path_expression ')' simple_or_edge_sensitive_path_description '=' path_delay_value
+								// Original simple_path_declaration | edge_sensitive_path_declaration
+	| ifnone simple_path_declaration 
+
+polarity_operator* ::= 
+	'+' | '-' 
+
+
+// A.7.5 System timing checks 
+
+// A.7.5.1 System timing check commands 
+
+system_timing_check* ::= 
+	$setup_timing_check 
+	| $hold_timing_check 
+	| $setuphold_timing_check 
+	| $recovery_timing_check 
+	| $removal_timing_check 
+	| $recrem_timing_check 
+	| $skew_timing_check 
+	| $timeskew_timing_check 
+	| $fullskew_timing_check 
+	| $period_timing_check 
+	| $width_timing_check 
+	| $nochange_timing_check 
+
+$setup_timing_check ::= 
+	$setup '(' data_event ',' reference_event ',' timing_check_limit [ ',' [ notifier ] ] ')' ';' 
+
+$hold_timing_check ::= 
+	$hold '(' reference_event ',' data_event ',' timing_check_limit [ ',' [ notifier ] ] ')' ';' 
+
+$setuphold_timing_check ::= 
+	$setuphold '(' reference_event ',' data_event ',' timing_check_limit ','  timing_check_limit 
+		[ ',' [ notifier ] [ ',' [ stamptime_condition ] [ ',' [ checktime_condition ] 
+		[ ',' [ delayed_reference ] [ ',' [ delayed_data ] ] ] ] ] ] 
+	')' ';' 
+
+$recovery_timing_check ::= 
+	$recovery '(' reference_event ',' data_event ',' timing_check_limit [ ',' [ notifier ] ] ')' ';' 
+
+$removal_timing_check ::= 
+	$removal '(' reference_event ',' data_event ',' timing_check_limit [ ',' [ notifier ] ] ')' ';' 
+
+$recrem_timing_check ::= 
+	$recrem '(' reference_event ',' data_event ',' timing_check_limit ',' timing_check_limit 
+						[ ',' [ notifier ] [ ',' [ stamptime_condition ] [ ',' [ checktime_condition ] 
+						[ ',' [ delayed_reference ] [ ',' [ delayed_data ] ] ] ] ] ] ')' ';' 
+
+$skew_timing_check ::= 
+	$skew '(' reference_event ',' data_event ',' timing_check_limit [ ',' [ notifier ] ] ')' ';' 
+
+$timeskew_timing_check ::= 
+	$timeskew '(' reference_event ',' data_event ',' timing_check_limit 
+						[ ',' [ notifier ] [ ',' [ event_based_flag ] [ ',' [ remain_active_flag ] ] ] ] ')' ';' 
+
+$fullskew_timing_check ::= 
+	$fullskew '(' reference_event ',' data_event ',' timing_check_limit ',' timing_check_limit 
+						[ ',' [ notifier ] [ ',' [ event_based_flag ] [ ',' [ remain_active_flag ] ] ] ] ')' ';' 
+
+$period_timing_check ::= 
+	$period '(' controlled_reference_event ',' timing_check_limit [ ',' [ notifier ] ] ')' ';' 
+
+$width_timing_check ::= 
+	$width '(' controlled_reference_event ',' timing_check_limit  [ ',' threshold [ ',' notifier ] ] ')' ';' 
+
+$nochange_timing_check ::= 
+	$nochange '(' reference_event ',' data_event ',' start_edge_offset ',' end_edge_offset [ ',' [ notifier ] ] ')' ';' 
+
+
+// A.7.5.2 System timing check command arguments 
+
+checktime_condition* ::= 
+	mintypmax_expression 
+
+controlled_reference_event* ::= 
+	controlled_timing_check_event 
+
+data_event* ::= 
+	timing_check_event 
+
+// normalized delayed_data
+delayed_data ::= 
+	terminal_identifier [ '[' constant_mintypmax_expression ']'  ]
+
+// normalized delayed_reference
+delayed_reference ::= 
+	terminal_identifier [ '[' constant_mintypmax_expression ']' ]
+
+end_edge_offset* ::= 
+	mintypmax_expression 
+
+event_based_flag* ::= 
+	constant_expression 
+
+notifier* ::= 
+	variable_identifier 
+
+reference_event* ::= 
+	timing_check_event 
+
+remain_active_flag* ::= 
+	constant_expression 
+
+stamptime_condition* ::= 
+	mintypmax_expression 
+
+start_edge_offset* ::= 
+	mintypmax_expression 
+
+threshold* ::= 
+	constant_expression 
+
+timing_check_limit* ::= 
+	expression 
+
+
+// A.7.5.3 System timing check event definitions 
+
+timing_check_event ::= 
+	[timing_check_event_control] specify_terminal_descriptor [ '&&&' timing_check_condition ] 
+
+controlled_timing_check_event ::= 
+	timing_check_event_control specify_terminal_descriptor [ '&&&' timing_check_condition ] 
+
+timing_check_event_control* ::= 
+	posedge 
+	| negedge 
+	| edge_control_specifier 
+
+// merged specify_input/output_terminal_descriptor
+specify_input_or_output_terminal_descriptor ::=
+	// ersetzt input_identifier | output_identifier
+	identifier [ '[' constant_range_expression ']' ] 
+
+specify_terminal_descriptor* ::= 
+	specify_input_or_output_terminal_descriptor 
+
+edge_control_specifier ::= 
+	edge '[' edge_descriptor { ',' edge_descriptor } ']' 
+
+timing_check_condition* ::= 
+	scalar_timing_check_condition 
+	// Klammer in expression bereits enthalten: | '(' scalar_timing_check_condition ')' 
+
+// normalized scalar_timing_check_condition
+scalar_timing_check_condition ::= 
+	// replace "~ expression" by expression
+	expression [
+		'==' scalar_constant 
+		| '===' scalar_constant 
+		| '!=' scalar_constant 
+		| '!==' scalar_constant 
+		]
+
+
+// A.8 Expressions 
+
+// A.8.1 Concatenations 
+
+// obsolete, merged into caller
+// concatenation ::= '{' expression { ',' expression } }
+
+// obsolete, merged into caller
+// constant_concatenation ::= '{' constant_expression { ',' constant_expression }  }
+
+// obsolete, merged into constant_primary
+// constant_multiple_concatenation ::= '{' constant_concatenation }
+
+// obsoltete, merged into module_path_primary
+// module_path_concatenation ::=  '{' module_path_expression { ',' module_path_expression } }
+
+// obsolete, merged into module_path_primary
+// module_path_multiple_concatenation ::= '{' constant_expression module_path_concatenation }
+
+// obsolete, merged into primary
+// multiple_concatenation ::= '{' constant_expression { concatenation } }
+
+
+// A.8.2 Function calls 
+
+// obsolete, merged into primary
+// constant_function_call ::= function_identifier { attribute_instance } '(' constant_expression { ',' constant_expression } ')' 
+
+// obsolete, merged into constant_primary
+// constant_system_function_call ::= system_function_identifier '(' constant_expression { ',' constant_expression } ')' 
+
+// obsolete, merged into primary
+// function_call ::= hierarchical_function_identifier{ attribute_instance } '(' expression { ',' expression } ')' 
+
+// obsolete, merged into caller
+// system_function_call ::= system_function_identifier [ '(' expression { ',' expression } ')' ] 
+
+
+// A.8.3 Expressions 
+
+	// see https://en.wikipedia.org/wiki/Left_recursion
+
+// obsolete, merged into caller
+// base_expression ::= expression 
+
+// obsolete, merged into caller
+// constant_base_expression ::= constant_expression 
+
+// removed direct left recursion, normalized
+constant_expression ::= 
+	[ unary_operator { attribute_instance } ] constant_primary { constant_expression_nlr }
+
+// helper to remove left recursion in constant_expression; no longer optional and recursive, but instead {} in caller
+constant_expression_nlr* ::=
+	binary_operator { attribute_instance } constant_expression 
+	| '?' { attribute_instance } constant_expression ':' constant_expression  
+
+// normalized constant_mintypmax_expression
+constant_mintypmax_expression ::= 
+	constant_expression [ ':' constant_expression ':' constant_expression ]
+
+// normalized constant_range_expression
+constant_range_expression ::= 
+	constant_expression 
+	// replaced msb_constant_expression and constant_base_expression with constant_expression
+	[
+		':' lsb_constant_expression 
+		| '+:' width_constant_expression 
+		| '-:' width_constant_expression 
+	]
+
+dimension_constant_expression* ::= 
+	constant_expression 
+
+// merged conditional_expression into expression, replaced expression1/2/3 by expression
+// removed direct left recursion, normalized expression
+expression ::= 
+	[ unary_operator { attribute_instance } ] primary { expression_nlr }
+
+// helper to remove left recursion from expression; removed optional and recursion, {} at caller
+expression_nlr* ::= 
+	binary_operator { attribute_instance } expression  
+	| '?' { attribute_instance } expression ':' expression 
+
+lsb_constant_expression* ::= 
+	constant_expression 
+
+// normalized mintypmax_expression
+mintypmax_expression ::= 
+	expression [ ':' expression ':' expression ]
+
+// obsolete: merged into module_path_expression
+// module_path_conditional_expression ::= module_path_expression '?' { attribute_instance } 
+//         module_path_expression ':' module_path_expression 
+
+// merged module_path_conditional_expression into module_path_expression; normalized
+module_path_expression ::= 
+	[ unary_module_path_operator { attribute_instance } ] module_path_primary module_path_expression_nlr
+
+module_path_expression_nlr* ::=
+	[
+		binary_module_path_operator { attribute_instance }  module_path_expression module_path_expression_nlr
+		| '?' { attribute_instance } module_path_expression ':' module_path_expression module_path_expression_nlr
+	]
+
+// normalized module_path_mintypmax_expression
+module_path_mintypmax_expression ::= 
+	module_path_expression [ ':' module_path_expression ':' module_path_expression ]
+
+msb_constant_expression* ::= 
+	constant_expression 
+
+// normalized range_expression
+range_expression ::= 
+	expression 
+	[
+		// replaced msb_constant_expression by expression
+		':' lsb_constant_expression 
+		| '+:' width_constant_expression 
+		| '-:' width_constant_expression 
+	]
+
+width_constant_expression* ::= 
+	constant_expression 
+
+
+// A.8.4 Primaries 
+
+// normalized constant_primary, then totally refactored, merged productions
+constant_primary* ::= 
+	number 
+	| string 
+	| '(' constant_mintypmax_expression { ',' constant_mintypmax_expression } ')'  // wegen path_delay_value werden hier mehrere zugelassen
+	// replace parameter_identifier, specparam_identifier, function_identifier and system_function_identifier with identifier | system_name
+	| ( identifier | system_name ) 
+		// made all optional so the lone identifier can also be used for genvar_primary which would be ambiguous otherwise
+		[ '[' constant_range_expression ']' | { attribute_instance } '(' constant_expression { ',' constant_expression } ')' ]
+	// merge constant_multiple_concatenation and constant_concatenation '->' 
+	// '->' '{' constant_expression '{' constant_expression { ',' constant_expression } '}' } | '{' constant_expression { ',' constant_expression } }
+	// becomes 
+	| '{' constant_expression [ ',' constant_expression { ',' constant_expression } | '{' constant_expression { ',' constant_expression } '}' ] '}' 
+
+// normalized primary; substituted left recursive expressions; 
+primary* ::= 
+	// replaces function_call and system_function_call and net_lvalue
+	( hierarchical_identifier_range | system_function_identifier ) [ '(' expression { ',' expression } ')'  ] 
+	| number 
+	| string 
+	| '(' mintypmax_expression ')' 
+	// merge multiple_concatenation and concatenation '->' multiple_concatenation | concatenation
+	// '->' '{' constant_expression '{' expression { ',' expression } '}' } | '{' expression { ',' expression } }
+	// becomes 
+	| '{' expression [ ',' expression { ',' expression } | '{' expression { ',' expression } '}' ] '}' 
+
+// normalized module_path_primary; removed left recursion
+module_path_primary* ::= 
+	number 
+	// replaces function_call and system_function_call and identifier 
+	| ( hierarchical_identifier | system_function_identifier ) [ '(' expression { ',' expression } ')'  ] 
+	| '(' module_path_mintypmax_expression ')' 
+	// merge multiple_concatenation and concatenation '->' multiple_concatenation | concatenation
+	// -> '{' constant_expression '{' module_path_expression { ',' module_path_expression } '}' } | '{' module_path_expression { ',' module_path_expression } }
+	// becomes 
+	| '{' module_path_expression 
+		[ ',' module_path_expression { ',' module_path_expression } 
+		| '{' module_path_expression { ',' module_path_expression } '}' 
+		] 
+	  '}' 
+
+
+// A.8.5 Expression left-side values 
+
+net_lvalue ::= 
+	// original hierarchical_net_identifier [ { '[' constant_expression ']' } '[' constant_range_expression ']' ] 
+	hierarchical_identifier_range_const
+	| '{' net_lvalue { ',' net_lvalue } '}' 
+
+variable_lvalue ::= 
+	// orig hierarchical_variable_identifier [ { '[' expression ']' } '[' range_expression ']' ] 
+	hierarchical_identifier_range
+	| '{' variable_lvalue { ',' variable_lvalue } '}' 
+
+// obsolet, replaced by orig symbol in caller
+// hierarchical_variable_or_net_identifier ::= hierarchical_identifier
+
+// merged variable_lvalue with net_lvalue
+variable_or_net_lvalue ::=
+	// orig hierarchical_variable_or_net_identifier [ { '[' expression ']' } '[' range_expression ']' ]
+	hierarchical_identifier_range 
+	| '{' variable_or_net_lvalue { ',' variable_or_net_lvalue } '}' 
+
+
+// A.8.6 Operators 
+
+unary_operator* ::=  
+	'+' | '-' | '!' | '~' | '&' | '~&' | '|' | '~|' | '^' | '~^' | '^~' 
+
+binary_operator* ::=  
+	'+' | '-' | '*' | '/' | '%' | '==' | '!=' | '===' | '!==' | '&&' | '||' | '**' 
+	| '<' | '<=' | '>' | '>=' | '&' | '|' | '^' | '^~' | '~^' | '>>' | '<<' | '>>>' | '<<<' 
+
+unary_module_path_operator* ::=  
+	'!' | '~' | '&' | '~&' | '|' | '~|' | '^' | '~^' | '^~' 
+
+binary_module_path_operator* ::= 
+	'==' | '!=' | '&&' | '||' | '&' | '|' | '^' | '^~' | '~^' 
+
+
+// A.8.7 Numbers 
+
+// modified, different segmentation of type variations than in spec
+number ::=
+	real_number
+	| natural_number [ based_number | base_format ( base_value | natural_number ) ]
+	| sizedbased_number
+	| based_number
+	| base_format ( base_value | natural_number )
+
+unsigned_or_real_number* ::= 
+	number
+	
+real_number* ::= 
+	Realnum
+	
+natural_number* ::= 
+	Natural
+	
+sizedbased_number* ::= 
+	SizedBased
+	
+based_number* ::= 
+	BasedInt
+	
+base_format* ::= 
+	BaseFormat
+	
+base_value* ::= 
+	BaseValue
+
+
+// A.8.8 Strings 
+// moved to Lexer
+
+string* ::=
+	Str
+
+
+// A.9 General 
+
+// A.9.1 Attributes 
+
+attribute_instance- ::= 
+	'(*'   attr_spec { ',' attr_spec }   '*)'
+
+attr_spec- ::= 
+	attr_name [ '=' constant_expression ] 
+
+attr_name- ::= 
+	identifier 
+
+// A.9.2 Comments 
+// moved to Lexer
+
+
+// A.9.3 Identifiers 
+// partially moved to Lexer
+
+block_identifier* ::= 
+	identifier 
+
+cell_identifier* ::= 
+	identifier 
+
+config_identifier* ::= 
+	identifier 
+
+event_identifier* ::= 
+	identifier 
+
+function_identifier* ::= 
+	identifier 
+
+gate_instance_identifier* ::= 
+	identifier 
+
+generate_block_identifier* ::= 
+	identifier 
+
+genvar_identifier* ::= 
+	identifier 
+
+hierarchical_event_identifier* ::= 
+	hierarchical_identifier 
+
+// obsolete, substituted by original symbol
+// hierarchical_function_identifier ::= hierarchical_identifier 
+
+// changed order, original { identifier [ '[' constant_expression ']' ] '.' } identifier 
+hierarchical_identifier ::= 
+	identifier [ '[' constant_expression ']' ] { '.' identifier [ '[' constant_expression ']' ] }
+
+// range_expression includes expression, constant_range_expression includes constant_expression
+// covers hierarchical_identifier { '[' expression ']' }
+// covers hierarchical_identifier [ { '[' expression ']' } '[' range_expression ']' ]
+hierarchical_identifier_range ::= 
+	identifier { '.' identifier | '[' range_expression ']' }
+	// vorher identifier { '.' identifier [ '[' range_expression ']' ] | '[' range_expression ']' }
+
+// covers hierarchical_identifier [ { '[' constant_expression ']' } '[' constant_range_expression ']' ] 
+hierarchical_identifier_range_const ::= 
+	identifier { '.' identifier | '[' constant_range_expression ']' }
+	// vorher identifier { '.' identifier [ '[' constant_range_expression ']' ] | '[' constant_range_expression ']' }
+
+// obsolete, substituted by original symbol
+// hierarchical_net_identifier ::= hierarchical_identifier 
+
+hierarchical_parameter_identifier* ::= 
+	hierarchical_identifier 
+
+// obsolete, substituted by original symbol
+// hierarchical_variable_identifier ::= hierarchical_identifier 
+
+// obsolete, substituted by original symbol
+// hierarchical_task_identifier ::= hierarchical_identifier 
+
+input_port_identifier* ::= 
+	identifier 
+
+instance_identifier* ::= 
+	identifier 
+
+library_identifier* ::= 
+	identifier 
+
+module_identifier* ::= 
+	identifier 
+
+module_instance_identifier- ::= 
+	identifier 
+
+net_identifier* ::= 
+	identifier 
+
+output_port_identifier* ::= 
+	identifier 
+
+parameter_identifier* ::= 
+	identifier 
+
+port_identifier* ::= 
+	identifier 
+
+real_identifier* ::= 
+	identifier 
+
+specparam_identifier* ::= 
+	identifier 
+
+task_identifier* ::= 
+	identifier 
+
+terminal_identifier* ::= 
+	identifier 
+
+topmodule_identifier* ::= 
+	identifier 
+
+udp_identifier* ::= 
+	identifier 
+
+udp_instance_identifier- ::= 
+	identifier 
+
+variable_identifier* ::= 
+	identifier 
+
+system_function_identifier* ::= 
+	system_name 
+
+system_task_identifier* ::= 
+	system_name
+
+identifier* ::=
+	Ident
+	
+system_name* ::=
+	SysName
+
+
+// A.9.4 White space 
+// moved to Lexer
+
+
+// Non-Standard Extensions
+// LL1 compromises to get rid of ambiguity
+
+// merged module_instantiation and udp_instantiation
+module_or_udp_instantiation ::= 
+	identifier [ \LL:2\ drive_strength ] [ parameter_value_assignment_or_delay2 ] 
+	// Coco/R Fehlalarm Warning: Misplaced resolver: no LL(1) conflict.
+	module_or_udp_instance { ',' module_or_udp_instance } ';'
+
+// merged module_instance and udp_instance
+module_or_udp_instance ::=
+	[ identifier ] [ range ] 
+	'(' [ { attribute_instance } port_connection_or_output_terminal { ',' port_connection_or_output_terminal } ] ')'
+
+// merged net_lvalue and list_of_port_connections, moved repetition to caller
+port_connection_or_output_terminal ::=  
+	(
+		// hierarchical_identifier covered by expression		 
+		'.' port_identifier '(' [ expression ] ')' 
+		// replace ambiguous expression and "{ net_lvalue { ',' net_lvalue } }" by specialized expression
+		| [ expression_2 ]
+		// note: ordered_port_connection can be empty!
+	)
+
+// merged parameter_value_assignment and delay2
+parameter_value_assignment_or_delay2 ::=
+	'#' [ delay_value ] '(' ( mintypmax_expression 
+		{ ',' mintypmax_expression } |  named_parameter_assignment { ',' named_parameter_assignment } ) ')' 
+
+// just expression with primary_2 instead primary
+expression_2 ::= 
+	[ unary_operator { attribute_instance } ] primary_2 { expression_nlr }
+
+// variation of primary to avoid ambiguity of expression and net_lvalue
+primary_2* ::= 
+	// replaces function_call and system_function_call and net_lvalue
+	( hierarchical_identifier_range | system_function_identifier ) 
+		[ 
+			// replaced by .._range: { '[' expression ']' } '[' range_expression ']' 
+			'(' expression { ',' expression } ')' 
+			| '{' net_lvalue { ',' net_lvalue } '}' 
+		] 
+	// remainder equal to primary
+	| number 
+	| string 
+	| '(' mintypmax_expression ')' 
+	| '{' expression [ ',' expression { ',' expression } | '{' expression { ',' expression } '}' ] '}' 
+
+//////// SystemVerilog 2012 Extension ///////////////////////
+
+reg_or_logic* ::=
+	reg | logic
+
+// merges assert_property_statement, simple_immediate_assert_statement and deferred_immediate_assert_statement
+concurrent_or_immediate_assert_statement ::= 
+	assert [ '#' natural_number | final | property ] '(' property_spec ')' action_block // '#0' nicht geeignet als Terminal da Kollision mit Delay value
+
+// merges assume_property_statement, simple_immediate_assume_statement and deferred_immediate_assume_statement
+concurent_or_immediate_assume_statement ::= 
+	assume [ '#' natural_number | final | property ] '(' property_spec ')' action_block 
+	
+// merges cover_property_statement, simple_immediate_cover_statement and deferred_immediate_cover_statement
+concurrent_or_immediate_cover_statement ::= 
+	cover [ '#' natural_number | final | property ] '(' property_spec ')' statement_or_null 
+
+cover_sequence_statement ::= 
+	cover sequence '(' [ clocking_event ] [ disable iff '(' expression_or_dist ')' ] 
+		sequence_expr ')' statement_or_null 
+
+restrict_property_statement ::= 
+	restrict [ property ] '(' property_spec ')' ';' // original ist property nicht optional, aber in Zipcpu schon
+	
+action_block* ::= 
+	statement_or_null
+	[ else statement_or_null ]
+	
+immediate_assertion_statement- ::= 
+	simple_or_deferred_or_property_immediate_assertion_statement 
+
+simple_or_deferred_or_property_immediate_assertion_statement* ::= 
+	concurrent_or_immediate_assert_statement 
+	| concurent_or_immediate_assume_statement 
+	| concurrent_or_immediate_cover_statement 
+	
+procedural_assertion_statement* ::= 
+	concurrent_assertion_statement
+	// redundant: | immediate_assertion_statement 
+	// not supported: checker_instantiation
+
+concurrent_assertion_statement* ::= 
+	\LL:2\ cover_sequence_statement 
+	|	simple_or_deferred_or_property_immediate_assertion_statement
+	// redundant: assert_property_statement 
+	// redundant: assume_property_statement 
+	// redundant: cover_property_statement 
+	| restrict_property_statement 
+	
+concurrent_assertion_item- ::= 
+	[ block_identifier ':' ] 
+	concurrent_assertion_statement 
+	// not supported: | checker_instantiation 
+
+// direkt in module_or_generate_item integriert wegen konflikt mit module_instantiation
+assertion_item- ::= 
+	concurrent_assertion_item 
+	// merged | deferred_immediate_assertion_item 
+
+// merged with concurrent_assertion_item: deferred_immediate_assertion_item* ::= 
+
+property_spec ::= 
+	[ clocking_event ] [ disable iff '(' expression_or_dist ')' ] property_expr 
+
+clocking_event* ::= 
+	'@' ( identifier | '(' event_expression ')' )
+	
+expression_or_dist* ::= 
+	expression [ dist '{' dist_list '}' ]
+
+dist_list* ::= 
+	dist_item { ',' dist_item } 
+
+dist_item ::= 
+	value_range [ dist_weight ]
+	
+dist_weight* ::= 
+	( ':=' | ':/' ) expression 
+	
+value_range* ::= 
+	expression 
+	| '[' expression ':' expression ']'
+	
+property_expr ::= 
+	sequence_expr 
+		[ 
+			( '|->' | '|=>' | '#-#' | '#=#' ) property_expr 
+			| '(' property_expr ')'
+		] property_expr_nlr
+	| strong '(' sequence_expr ')' property_expr_nlr
+	| weak '(' sequence_expr ')' property_expr_nlr
+	| not property_expr property_expr_nlr
+	| if ( expression_or_dist ) property_expr [ else property_expr ] property_expr_nlr
+	| case ( expression_or_dist ) property_case_item { property_case_item } endcase property_expr_nlr
+	| nexttime [ '[' constant_expression ']' ] property_expr property_expr_nlr
+	| s_nexttime [ '[' constant_expression ']' ] property_expr property_expr_nlr
+	| always [ '[' cycle_delay_const_range_expression ']' ] property_expr property_expr_nlr
+	| s_always '[' constant_range ']' property_expr property_expr_nlr
+	| s_eventually [ '[' cycle_delay_const_range_expression ']' ] property_expr property_expr_nlr
+	| eventually '[' constant_range ']' property_expr property_expr_nlr
+	| accept_on '(' expression_or_dist ')' property_expr property_expr_nlr
+	| reject_on '(' expression_or_dist ')' property_expr property_expr_nlr
+	| sync_accept_on '(' expression_or_dist ')' property_expr property_expr_nlr
+	| sync_reject_on '(' expression_or_dist ')' property_expr property_expr_nlr
+	| clocking_event property_expr property_expr_nlr
+	//| property_instance 
+		
+// new production to remove left recursion
+property_expr_nlr* ::=
+	[
+		or property_expr property_expr_nlr
+		| and property_expr property_expr_nlr
+		| until property_expr property_expr_nlr
+		| s_until property_expr property_expr_nlr
+		| until_with property_expr property_expr_nlr
+		| s_until_with property_expr property_expr_nlr
+		| implies property_expr property_expr_nlr
+		| iff property_expr property_expr_nlr
+	]
+
+property_case_item ::= 
+	expression_or_dist { ',' expression_or_dist } ':' property_expr [ ';' ] 
+	| default [ ':' ] property_expr [ ';' ] 
+
+constant_range* ::= 
+	constant_expression ':' constant_expression
+	
+cycle_delay_const_range_expression* ::= 
+	constant_expression ':' ( constant_expression | '$' )
+	
+sequence_expr ::= 
+	cycle_delay_range sequence_expr { cycle_delay_range sequence_expr } sequence_expr_nlr
+	| expression_or_dist ( [ boolean_abbrev ] | throughout sequence_expr ) sequence_expr_nlr
+	// wird durch property_expr bereits erfüllt: | clocking_event sequence_expr sequence_expr_nlr
+	//| sequence_instance [ sequence_abbrev ] 
+	//| '(' sequence_expr { ',' sequence_match_item } ')' [ sequence_abbrev ] 
+	//| first_match '(' sequence_expr { ',' sequence_match_item } ')' 
+	
+// new production to remove left recursion
+sequence_expr_nlr* ::=
+	[
+		// cycle_delay_range sequence_expr { cycle_delay_range sequence_expr } sequence_expr_nlr
+		and sequence_expr sequence_expr_nlr
+		| intersect sequence_expr sequence_expr_nlr
+		| or sequence_expr sequence_expr_nlr
+		| within sequence_expr sequence_expr_nlr
+	]
+
+cycle_delay_range* ::= 
+	// original	'##' [ constant_primary | cycle_delay_const_range_expression ]
+	'##' [ cycle_delay_const_range_expression ]
+	| '##[*]' 
+	| '##[+]' 
+
+boolean_abbrev* ::= 
+	consecutive_repetition 
+	| non_consecutive_repetition 
+	| goto_repetition 
+
+consecutive_repetition* ::= 
+	'[*' const_or_range_expression ']' 
+	| '[*]' 
+	| '[+]' 
+
+non_consecutive_repetition* ::= 
+	'[=' const_or_range_expression ']' 
+
+goto_repetition* ::= 
+	'[->' const_or_range_expression ']' 
+	
+const_or_range_expression* ::= 
+	// original constant_expression |
+	cycle_delay_const_range_expression 
+		
+//////////// Weitere Terminals, um Lexer-Tokens zu erzeugen ///////////////
+
+Attribute ::=
+Comment ::=
+comment_helper- ::= '/*' '*/'
+MacroUsage ::=
+Section ::=
+SectionEnd ::=
+CoDi ::=
+LineCont ::=
+Realnum ::=        // Kommazahl, ev. Exponent
+Natural ::=        // nur einzelne Dezimalzahl ohne Base
+SizedBased ::=     // vollständige Zahl aus Natural + BaseFormat + BaseValue
+BasedInt ::=       // BaseFormat + BaseValue
+BaseFormat ::=     // nur decimal_base, binary_base, octal_base oder hex_base
+BaseValue ::=      // nur decimal_value, binary_value, octal_value oder hex_value
+SysName ::=        // System name, starting with $
+Ident ::=          // Normal and Escaped ID
+Str ::=			   // Plain String

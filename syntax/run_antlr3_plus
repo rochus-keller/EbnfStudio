@@ -1,0 +1,5 @@
+/home/me/Programme/antlr3 -report -verbose ./Verilog05Plus.g 2>&1 | tee antlr_out.txt
+
+#mv ../parser/Parser.h ../../Verilog/CocoParser.h
+#mv ../parser/Parser.cpp ../../Verilog/CocoParser.cpp
+

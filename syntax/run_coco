@@ -1,0 +1,12 @@
+../../Coco/Coco ./Verilog05.atg -trace FP -o ../parser -namespace Coco > ./coco_out.txt
+
+#mv ./trace.txt ../parser
+
+mv ../parser/Parser.h ../../Verilog/CocoParser.h
+mv ../parser/Parser.cpp ../../Verilog/CocoParser.cpp
+
+mv ./VlSynTree.h ../../Verilog
+mv ./VlSynTree.cpp ../../Verilog
+
+mv ./VlTokenType.h ../../Verilog
+mv ./VlTokenType.cpp ../../Verilog

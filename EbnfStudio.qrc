@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/">
+        <file>images/exclamation-circle.png</file>
+        <file>images/exclamation-red.png</file>
+        <file>images/exclamation-white.png</file>
+        <file>images/icon_16.png</file>
+        <file>images/icon_32.png</file>
+        <file>images/icon_64.png</file>
+        <file>images/icon_128.png</file>
+        <file>images/icon_256.png</file>
+    </qresource>
+</RCC>
