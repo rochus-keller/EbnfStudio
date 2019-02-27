@@ -1076,6 +1076,7 @@ bool EbnfEditor::loadKeywords(const QString& path)
     QFileInfo info(path);
     l.readKeywordsFromFile( info.absoluteDir().absoluteFilePath( info.completeBaseName() + ".keywords" ) );
     d_hl->setKeywords( l.getKeywords() );
+    return true;
 }
 
 void EbnfEditor::newFile()

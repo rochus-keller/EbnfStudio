@@ -129,6 +129,7 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
     }
 
     out << "END " << root->d_tok.d_val.toBa() << " ." << endl;
+    return true;
 }
 
 void CocoGen::writeNode( QTextStream& out, EbnfSyntax::Node* node, bool topLevel, bool buildAst )

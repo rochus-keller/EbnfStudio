@@ -72,7 +72,7 @@ bool LlgenGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet*
         writeNode( out, d->d_node, true, tbl );
         out << endl << "    ;" << endl << endl;
     }
-
+    return true;
 }
 
 void LlgenGen::writeNode(QTextStream& out, EbnfSyntax::Node* node, bool topLevel, FirstFollowSet* tbl)

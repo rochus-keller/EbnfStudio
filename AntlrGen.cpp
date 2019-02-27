@@ -87,6 +87,7 @@ bool AntlrGen::generate(const QString& atgPath, EbnfSyntax* syn)
         out2 << tokenName(tokens[t].first) << " = " << t << endl;
     }
     */
+    return true;
 }
 
 void AntlrGen::writeNode(QTextStream& out, EbnfSyntax::Node* node, bool topLevel)

@@ -75,6 +75,7 @@ static inline bool printHex( const QString& str )
     for( int i = 0; i < str.size(); i++ )
         ba += QByteArray::number(str[i].unicode(),16) + " ";
     qDebug() << ba << str;
+    return true;
 }
 
 bool HtmlSyntax::reformat(const QTextDocument& doc, QTextStream& out)
@@ -275,6 +276,6 @@ bool HtmlSyntax::generateHtml(const QString& ebnfPath, EbnfSyntax* syn, bool all
         out << "</dd><br>" << endl;
     }
     out << "</dl></body></html>";
-
+    return true;
 }
 

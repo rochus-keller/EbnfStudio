@@ -40,6 +40,7 @@ public:
     {
         EbnfToken d_tok;
         Symbol( const EbnfToken& tok = EbnfToken() ):d_tok(tok) {}
+        virtual ~Symbol() {}
         virtual bool doIgnore() const { return false; }
         virtual bool isNullable() const { return false; }
         virtual bool isRepeatable() const { return false; }
