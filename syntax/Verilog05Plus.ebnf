@@ -1777,7 +1777,7 @@ concurrent_or_immediate_assert_statement ::=
 	assert [ '#' natural_number | final | property ] '(' property_spec ')' action_block // '#0' nicht geeignet als Terminal da Kollision mit Delay value
 
 // merges assume_property_statement, simple_immediate_assume_statement and deferred_immediate_assume_statement
-concurent_or_immediate_assume_statement ::= 
+concurrent_or_immediate_assume_statement ::= 
 	assume [ '#' natural_number | final | property ] '(' property_spec ')' action_block 
 	
 // merges cover_property_statement, simple_immediate_cover_statement and deferred_immediate_cover_statement
@@ -1800,7 +1800,7 @@ immediate_assertion_statement- ::=
 
 simple_or_deferred_or_property_immediate_assertion_statement* ::= 
 	concurrent_or_immediate_assert_statement 
-	| concurent_or_immediate_assume_statement 
+	| concurrent_or_immediate_assume_statement 
 	| concurrent_or_immediate_cover_statement 
 	
 procedural_assertion_statement* ::= 
