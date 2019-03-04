@@ -44,6 +44,42 @@ QString EbnfSyntax::pretty(const EbnfSyntax::NodeRefSet& s)
     return l.join(' ');
 }
 
+QString EbnfSyntax::pretty(const EbnfSyntax::NodeSet& s)
+{
+    QByteArrayList l;
+    foreach( const Node* r, s )
+    {
+        l.append( "'" + r->d_tok.d_val.toBa() + "'" );
+    }
+    qSort(l);
+    return l.join(' ');
+}
+
+EbnfSyntax::NodeRefSet EbnfSyntax::nodeToRefSet(const EbnfSyntax::NodeSet& s)
+{
+    NodeRefSet res;
+    foreach( const Node* n, s )
+        res.insert( n );
+//    if( s.size() != res.size() )
+//    {
+//        qDebug() << "**** EbnfSyntax::nodeToRefSet size deviation";
+//        qDebug() << "NodeSet:" << pretty(s);
+//        qDebug() << "NodeRefSet:" << pretty(res);
+//    }
+    return res;
+}
+
+EbnfSyntax::NodeSet EbnfSyntax::collectNodes(const EbnfSyntax::NodeRefSet& pattern, const EbnfSyntax::NodeSet& set)
+{
+    EbnfSyntax::NodeSet res;
+    foreach( const Node* n, set )
+    {
+        if( pattern.contains(n) )
+            res << n;
+    }
+    return res;
+}
+
 EbnfSyntax::EbnfSyntax(EbnfErrors* errs):d_finished(false),d_errs(errs)
 {
 
@@ -415,7 +451,7 @@ void EbnfSyntax::markLeftRecursion(EbnfSyntax::Definition* start, Node* cur, Ebn
                 cur->d_pathToDef = path;
                 if( d_errs )
                 {
-                    NodeRefList l;
+                    ConstNodeList l;
                     foreach( EbnfSyntax::Node* n, path )
                         l.append(n);
                     d_errs->error( EbnfErrors::Semantics, cur->d_tok.d_lineNr, cur->d_tok.d_colNr,

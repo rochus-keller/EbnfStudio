@@ -320,16 +320,19 @@ void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollow
                     errs->warning(EbnfErrors::Analysis, pred->d_tok.d_lineNr, pred->d_tok.d_colNr,
                             QString("predicate not effective for LL(%1)").arg(ll),
                                   QVariant::fromValue(EbnfSyntax::IssueData(EbnfSyntax::IssueData::BadPred,
-                                                                            pred,other,diff.toList())));
+                                                                            pred,other)));
 
             }
 
             if( !diff.isEmpty() )
             {
+                EbnfSyntax::NodeSet diff2 = EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(a) );
+                diff2 += EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(b) );
                 errs->error(EbnfErrors::Analysis, node->d_tok.d_lineNr, node->d_tok.d_colNr,
                             QString("alternatives %1 and %2 are LL(1) ambiguous because of %3")
                             .arg(i+1).arg(j+1).arg(EbnfSyntax::pretty(diff)),
-                            QVariant::fromValue(EbnfSyntax::IssueData(EbnfSyntax::IssueData::AmbigAlt,a,b,diff.toList())));
+                            QVariant::fromValue(EbnfSyntax::IssueData(
+                                                    EbnfSyntax::IssueData::AmbigAlt,a,b,diff2.toList())));
             }
         }
     }
@@ -398,15 +401,18 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
                     continue;
                 errs->warning(EbnfErrors::Analysis, pred->d_tok.d_lineNr, pred->d_tok.d_colNr,
                             QString("predicate not effective for LL(%1)").arg(ll),
-                              QVariant::fromValue(EbnfSyntax::IssueData(EbnfSyntax::IssueData::BadPred,pred,b,diff.toList())) );
+                              QVariant::fromValue(EbnfSyntax::IssueData(EbnfSyntax::IssueData::BadPred,pred,b)) );
             }
         }
-        reportAmbig( seq, i, diff, set, errs );
+        EbnfSyntax::NodeSet diff2 = EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(a) );
+        if( b != 0 )
+            diff2 += EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(b) );
+        reportAmbig( seq, i, diff, diff2, set, errs );
     }
 }
 
 void EbnfAnalyzer::reportAmbig(EbnfSyntax::Node* sequence, int ambigIdx, const EbnfSyntax::NodeRefSet& ambigSet,
-                               FirstFollowSet* set, EbnfErrors* errs)
+                               const EbnfSyntax::NodeSet& ambigSet2, FirstFollowSet* set, EbnfErrors* errs)
 {
     EbnfSyntax::Node* a = sequence->d_subs[ambigIdx];
     const EbnfSyntax::Node* start = EbnfSyntax::firstVisibleElementOf(sequence);
@@ -439,6 +445,7 @@ void EbnfAnalyzer::reportAmbig(EbnfSyntax::Node* sequence, int ambigIdx, const E
     errs->warning(EbnfErrors::Analysis, a->d_tok.d_lineNr, a->d_tok.d_colNr,
                 QString("opt. elem. %1 of seq. %2is LL(1) ambig. %3 because of %4")
                 .arg(ambigIdx+1).arg(ofSeq).arg(ambig).arg(EbnfSyntax::pretty(ambigSet)),
-                  QVariant::fromValue(EbnfSyntax::IssueData(EbnfSyntax::IssueData::AmbigOpt,a,next,ambigSet.toList())));
+                  QVariant::fromValue(EbnfSyntax::IssueData(
+                                          EbnfSyntax::IssueData::AmbigOpt,a,next,ambigSet2.toList())));
 }
 

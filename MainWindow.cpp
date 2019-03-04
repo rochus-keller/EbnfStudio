@@ -155,13 +155,13 @@ void MainWindow::onErrorsDblClicked()
         EbnfSyntax::IssueData d = item->data(0,Qt::UserRole+1).value<EbnfSyntax::IssueData>();
         if( d.d_type )
         {
-            foreach( const EbnfSyntax::NodeRef& r, d.d_list )
+            foreach( const EbnfSyntax::Node* r, d.d_list )
             {
                 QTreeWidgetItem* i = new QTreeWidgetItem(d_errDetails);
-                i->setText( 0, r.d_node->d_tok.d_val.toStr() );
-                i->setText( 1, r.d_node->d_owner->d_tok.d_val.toStr());
+                i->setText( 0, r->d_tok.d_val.toStr() );
+                i->setText( 1, r->d_owner->d_tok.d_val.toStr());
                 i->setToolTip( 1, i->text(1));
-                i->setData(0,Qt::UserRole, QPoint(r.d_node->d_tok.d_colNr,r.d_node->d_tok.d_lineNr) );
+                i->setData(0,Qt::UserRole, QPoint(r->d_tok.d_colNr,r->d_tok.d_lineNr) );
             }
             if( d.d_type != EbnfSyntax::IssueData::LeftRec )
                 d_errDetails->sortItems(0,Qt::AscendingOrder);

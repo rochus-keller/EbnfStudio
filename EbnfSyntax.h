@@ -35,6 +35,7 @@ public:
     struct Node;
     typedef QList<Node*> NodeList;
     typedef QList<const Node*> ConstNodeList;
+    typedef QSet<const EbnfSyntax::Node*> NodeSet;
 
     struct Symbol
     {
@@ -104,15 +105,14 @@ public:
     };
     typedef QSet<NodeRef> NodeRefSet;
     typedef QList<NodeRef> NodeRefList;
-    static QString pretty( const NodeRefSet& );
 
     struct IssueData
     {
         enum Type { None, AmbigAlt, AmbigOpt, BadPred, LeftRec } d_type;
         const Node* d_ref;
         const Node* d_other;
-        NodeRefList d_list;
-        IssueData(Type t = None, const Node* r = 0, const Node* oth = 0, const NodeRefList& l = NodeRefList()):
+        ConstNodeList d_list;
+        IssueData(Type t = None, const Node* r = 0, const Node* oth = 0, const ConstNodeList& l = ConstNodeList()):
             d_type(t), d_ref(r),d_other(oth),d_list(l){}
     };
 
@@ -135,6 +135,11 @@ public:
     ConstNodeList getBackRefs( const Symbol* ) const;
     static const Node* firstVisibleElementOf( const Node* );
     static const Node* firstPredicateOf( const Node* );
+
+    static QString pretty( const NodeRefSet& );
+    static QString pretty( const NodeSet& );
+    static NodeRefSet nodeToRefSet( const NodeSet& );
+    static NodeSet collectNodes( const NodeRefSet& pattern, const NodeSet& set );
 
     void dump() const;
 protected:
