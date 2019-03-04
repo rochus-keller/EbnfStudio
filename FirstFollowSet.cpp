@@ -20,7 +20,7 @@
 #include "FirstFollowSet.h"
 #include <QtDebug>
 
-FirstFollowSet::FirstFollowSet(QObject *parent) : QObject(parent)
+FirstFollowSet::FirstFollowSet(QObject *parent) : QObject(parent),d_includeNts(false)
 {
 
 }
@@ -35,6 +35,11 @@ void FirstFollowSet::setSyntax(EbnfSyntax* syn)
     calculateFollowSets();
 }
 
+void FirstFollowSet::setIncludeNts(bool on)
+{
+    d_includeNts = on;
+}
+
 void FirstFollowSet::clear()
 {
     d_syn = 0;
@@ -42,9 +47,9 @@ void FirstFollowSet::clear()
     d_follow.clear();
 }
 
-EbnfSyntax::NodeSet FirstFollowSet::getFirstSet(const EbnfSyntax::Node* node, bool cache ) const
+EbnfSyntax::NodeRefSet FirstFollowSet::getFirstSet(const EbnfSyntax::Node* node, bool cache ) const
 {
-    EbnfSyntax::NodeSet res = d_first.value(node);
+    EbnfSyntax::NodeRefSet res = d_first.value(node);
     if( res.isEmpty() )
     {
         res = calculateFirstSet(node);
@@ -57,21 +62,21 @@ EbnfSyntax::NodeSet FirstFollowSet::getFirstSet(const EbnfSyntax::Node* node, bo
     return res;
 }
 
-EbnfSyntax::NodeSet FirstFollowSet::getFirstSet(const EbnfSyntax::Definition* d) const
+EbnfSyntax::NodeRefSet FirstFollowSet::getFirstSet(const EbnfSyntax::Definition* d) const
 {
     Q_ASSERT( d != 0 );
     return d_first.value(d->d_node);
 }
 
-EbnfSyntax::NodeSet FirstFollowSet::getFollowSet(const EbnfSyntax::Definition* d) const
+EbnfSyntax::NodeRefSet FirstFollowSet::getFollowSet(const EbnfSyntax::Definition* d) const
 {
     Q_ASSERT( d != 0 );
     return getFollowSet( d->d_node );
 }
 
-EbnfSyntax::NodeSet FirstFollowSet::getFollowSet(const EbnfSyntax::Node* node) const
+EbnfSyntax::NodeRefSet FirstFollowSet::getFollowSet(const EbnfSyntax::Node* node) const
 {
-    EbnfSyntax::NodeSet res = d_follow.value(node);
+    EbnfSyntax::NodeRefSet res = d_follow.value(node);
     /* Wenn man die Repeats hier berechnet, kommt nicht dasselbe raus wie wenn man sie in calculateFollowSet2 berechnet!
     if( node->d_quant == EbnfSyntax::Node::ZeroOrMore && doRepeats )
         // Wenn das Element wiederholt wird, erscheint auch sein eigenes First-Set als Teil des Follow-Sets
@@ -80,12 +85,12 @@ EbnfSyntax::NodeSet FirstFollowSet::getFollowSet(const EbnfSyntax::Node* node) c
     return res;
 }
 
-EbnfSyntax::NodeSet FirstFollowSet::calculateFirstSet(const EbnfSyntax::Node* node) const
+EbnfSyntax::NodeRefSet FirstFollowSet::calculateFirstSet(const EbnfSyntax::Node* node) const
 {
     if( node == 0 || node->doIgnore() )
-        return EbnfSyntax::NodeSet();
+        return EbnfSyntax::NodeRefSet();
 
-    EbnfSyntax::NodeSet res;
+    EbnfSyntax::NodeRefSet res;
     switch( node->d_type )
     {
     case EbnfSyntax::Node::Terminal:
@@ -116,7 +121,11 @@ EbnfSyntax::NodeSet FirstFollowSet::calculateFirstSet(const EbnfSyntax::Node* no
             if( node->d_def == 0 || node->d_def->d_node == 0 )
                 res << node; // unechtes Terminal
             else
+            {
                 res = d_first[node->d_def->d_node];
+                if( d_includeNts )
+                    res += node;
+            }
         }
         break;
     case EbnfSyntax::Node::Predicate:
@@ -142,7 +151,7 @@ void FirstFollowSet::calculateFirstSets()
             if( d->d_node == 0 // pseudoterminal, wird nicht hier behandelt, sondern beim NT, das darauf zeigt
                     || d->doIgnore() )
                 continue;
-            EbnfSyntax::NodeSet newValue = calculateFirstSet(d->d_node);
+            EbnfSyntax::NodeRefSet newValue = calculateFirstSet(d->d_node);
             if( newValue != d_first[d->d_node] )
             {
                 d_first[d->d_node] = newValue;
@@ -191,15 +200,15 @@ static inline bool isNt( const EbnfSyntax::Node* node )
             node->d_type == EbnfSyntax::Node::Alternative;
 }
 
-static bool add(FirstFollowSet::Lookup& lkp, const EbnfSyntax::Node* node, const EbnfSyntax::NodeSet& rhs )
+static bool add(FirstFollowSet::Lookup& lkp, const EbnfSyntax::Node* node, const EbnfSyntax::NodeRefSet& rhs )
 {
     if( node->d_def )
     {
         Q_ASSERT(node->d_type == EbnfSyntax::Node::Nonterminal );
         node = node->d_def->d_node;
     }
-    EbnfSyntax::NodeSet& orig = lkp[node];
-    EbnfSyntax::NodeSet lhs = orig;
+    EbnfSyntax::NodeRefSet& orig = lkp[node];
+    EbnfSyntax::NodeRefSet lhs = orig;
     lhs += rhs;
     bool changed = false;
     if( orig != lhs )
@@ -241,7 +250,7 @@ bool FirstFollowSet::calculateFollowSet2(const EbnfSyntax::Node* node, bool addR
         if( node == node->d_owner->d_node )
         {
             // Spezialfall, wenn Definition nur ein NT enthält
-            EbnfSyntax::NodeSet follow = d_follow[node];
+            EbnfSyntax::NodeRefSet follow = d_follow[node];
             // vereine das Follow Set dieses Nonterminals mit demjenigen dieser Production, in der sich das
             // Nonterminal gerade befindet
             changed |= add( d_follow, node, follow );
@@ -259,7 +268,7 @@ bool FirstFollowSet::calculateFollowSet2(const EbnfSyntax::Node* node, bool addR
             // hier werden nur die Elemente von Seq und Alt betrachtet, die Nonterminals sind.
             // Vorsicht: da wir in einer EBNF sind, ist jede Sequence und Alternative selber
             // eine Production bzw. Nonterminal! Siehe https://stackoverflow.com/questions/2466484/converting-ebnf-to-bnf
-            EbnfSyntax::NodeSet follow;
+            EbnfSyntax::NodeRefSet follow;
             bool foundNn = false;
             if( node->d_type == EbnfSyntax::Node::Sequence )
                 for( int j = i + 1; j < node->d_subs.size(); j++ )
@@ -268,7 +277,7 @@ bool FirstFollowSet::calculateFollowSet2(const EbnfSyntax::Node* node, bool addR
                     const EbnfSyntax::Node* b = node->d_subs[j];
                     if( b->doIgnore() )
                         continue;
-                    const EbnfSyntax::NodeSet first = getFirstSet(b);
+                    const EbnfSyntax::NodeRefSet first = getFirstSet(b);
                     follow += first;
                     if( !b->isNullable() )
                     {
@@ -281,7 +290,7 @@ bool FirstFollowSet::calculateFollowSet2(const EbnfSyntax::Node* node, bool addR
             {
                 // wenn es sich um ein Element einer Alternative handelt oder in einer Sequence alles bis ans
                 // Ende nullable war, wird das übergeordnete Follow Set runtergeholt
-                const EbnfSyntax::NodeSet outer = d_follow[node];
+                const EbnfSyntax::NodeRefSet outer = d_follow[node];
                 follow += outer;
             }
             changed |= add( d_follow, a, follow );
@@ -303,96 +312,3 @@ bool FirstFollowSet::calculateFollowSet2(const EbnfSyntax::Node* node, bool addR
     }
     return changed;
 }
-
-
-#ifdef _old
-bool FirstFollowSet::calculateFollowSet(const EbnfSyntax::Definition* def)
-{
-    // Obsolet, funktioniert nicht richtig
-    if( def == 0 || def->doIgnore() )
-        return false;
-
-    EbnfSyntax::NodeSet res;
-
-    bool changed = false;
-    foreach( const EbnfSyntax::Node* n, def->d_usedBy )
-    {
-        if( n->d_owner->doIgnore() )
-            continue;
-
-        const EbnfSyntax::Node* parent = n->d_parent;
-        while( parent )
-        {
-            // jede Sequence und Alternative ist selber eine (einmal vorkommende) Production
-            // in der BNF-Variante der vorliegenden EBNF.
-            Q_ASSERT( parent->d_type == EbnfSyntax::Node::Sequence ||
-                      parent->d_type == EbnfSyntax::Node::Alternative );
-            const EbnfSyntax::NodeSet res2 = calculateFollowSet(parent);
-            if( d_follow[parent] != res2 )
-            {
-                d_follow[parent] = res2;
-                changed = true;
-            }
-            parent = parent->d_parent;
-        }
-
-        // Gehe durch alle Vorkommen von def in irgendwelchen Produktionen und berechne
-        // für jedes Vorkommen den Nachfolger
-        Q_ASSERT( n->d_type == EbnfSyntax::Node::Nonterminal );
-        res += calculateFollowSet(n);
-    }
-    if( d_follow[def->d_node] != res )
-    {
-        d_follow[def->d_node] = res;
-        changed = true;
-    }
-
-    return changed;
-}
-
-EbnfSyntax::NodeSet FirstFollowSet::calculateFollowSet(const EbnfSyntax::Node* nt) const
-{
-    // Obsolet, funktioniert nicht richtig
-
-    // Vorsicht: da wir in einer EBNF sind, ist jede Sequence und Alternative selber
-    // eine Production! Siehe https://stackoverflow.com/questions/2466484/converting-ebnf-to-bnf
-    // Diese Funktion berechnet für eine Verwendung eines NT die Folgemenge.
-    EbnfSyntax::NodeSet res;
-    if( nt->d_parent == 0 )
-    {
-        Q_ASSERT( nt == nt->d_owner->d_node );
-        // das ist der Spezialfall mit einer Production, die nur ein NT auf der rechten Seite hat
-        res += d_follow[nt->d_owner->d_node];
-    }else if( nt->d_parent->d_type != EbnfSyntax::Node::Sequence )
-    {
-        Q_ASSERT( nt->d_parent->d_type == EbnfSyntax::Node::Alternative );
-        // das ist der Spezialfall einer Sequence mit Länge 1
-        res += d_follow[nt->d_parent];
-    }else
-    {
-        const int i = nt->d_parent->d_subs.indexOf(const_cast<EbnfSyntax::Node*>(nt));
-        Q_ASSERT( i != -1 );
-        bool metNonNullable = false;
-        for( int j = i + 1; j < nt->d_parent->d_subs.size(); j++ )
-        {
-            const EbnfSyntax::Node* next = nt->d_parent->d_subs[j];
-            if( next->doIgnore() )
-                continue;
-            res += getFirstSet(1,next);
-            if( !next->isNullable() )
-            {
-                metNonNullable = true;
-                break;
-            }
-        }
-        if( !metNonNullable )
-            res += d_follow[nt->d_parent];
-    }
-
-    // Wenn das Element wiederholt wird, erscheint auch sein eigenes First-Set als Teil des Follow-Sets
-    if( nt->d_quant == EbnfSyntax::Node::ZeroOrMore )
-        res += getFirstSet(1,nt);
-
-    return res;
-}
-#endif

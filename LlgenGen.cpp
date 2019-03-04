@@ -174,7 +174,7 @@ void LlgenGen::handlePredicate(QTextStream& out, EbnfSyntax::Node* pred, EbnfSyn
             return;
 
         EbnfAnalyzer::LlkNodes llkNodes;
-        EbnfAnalyzer::calcLlkFirstSet( ll, llkNodes,sequence, tbl );
+        EbnfAnalyzer::calcLlkFirstSet2( ll, llkNodes,sequence, tbl );
         out << "%if( ";
         for( int i = 0; i < llkNodes.size(); i++ )
         {
@@ -182,7 +182,7 @@ void LlgenGen::handlePredicate(QTextStream& out, EbnfSyntax::Node* pred, EbnfSyn
                 out << "&& ";
             if( llkNodes[i].size() > 1 )
                 out << "( ";
-            EbnfSyntax::NodeSet::const_iterator j;
+            EbnfSyntax::NodeRefSet::const_iterator j;
             for( j = llkNodes[i].begin(); j != llkNodes[i].end(); ++j )
             {
                 if( j != llkNodes[i].begin() )

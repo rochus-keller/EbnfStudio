@@ -115,6 +115,7 @@ static bool errorEntryLessThan(const EbnfErrors::Entry &s1, const EbnfErrors::En
 void MainWindow::onErrors()
 {
     d_errView->clear();
+    d_errDetails->clear();
     QList<EbnfErrors::Entry> errs = d_edit->getErrs()->getErrors().toList();
     std::sort(errs.begin(), errs.end(), errorEntryLessThan );
     //qDebug() << errs.size() << "errors found";
@@ -157,11 +158,14 @@ void MainWindow::onErrorsDblClicked()
             foreach( const EbnfSyntax::NodeRef& r, d.d_list )
             {
                 QTreeWidgetItem* i = new QTreeWidgetItem(d_errDetails);
-                i->setText( 0, r.d_node->d_tok.d_val.toStr());
+                i->setText( 0, r.d_node->d_tok.d_val.toStr() );
+                i->setText( 1, r.d_node->d_owner->d_tok.d_val.toStr());
+                i->setToolTip( 1, i->text(1));
                 i->setData(0,Qt::UserRole, QPoint(r.d_node->d_tok.d_colNr,r.d_node->d_tok.d_lineNr) );
             }
             if( d.d_type != EbnfSyntax::IssueData::LeftRec )
                 d_errDetails->sortItems(0,Qt::AscendingOrder);
+            d_errDetails->resizeColumnToContents(0);
         }
     }
 }
@@ -416,9 +420,9 @@ void MainWindow::onOutputFirstSet()
 //        out << "first: ";
 //        EbnfSyntax::NodeSet ns = d_tbl->getFirstSet(1, d );
         out << "follow: ";
-        EbnfSyntax::NodeSet ns = d_tbl->getFollowSet( d );
+        EbnfSyntax::NodeRefSet ns = d_tbl->getFollowSet( d );
         QByteArrayList l;
-        for( EbnfSyntax::NodeSet::const_iterator j = ns.begin(); j != ns.end(); ++j )
+        for( EbnfSyntax::NodeRefSet::const_iterator j = ns.begin(); j != ns.end(); ++j )
             l << GenUtils::symToString( (*j).d_node->d_tok.d_val );
         qSort(l);
         foreach( const QByteArray& a, l )
@@ -636,6 +640,9 @@ void MainWindow::createDetails()
     d_errDetails->setSortingEnabled(false);
     d_errDetails->setAllColumnsShowFocus(true);
     d_errDetails->setRootIsDecorated(false);
+    d_errDetails->setColumnCount(2);
+    d_errDetails->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    d_errDetails->header()->setSectionResizeMode(1, QHeaderView::Stretch);
     vbox->addWidget(d_errDetails);
     dock->setWidget(pane);
     addDockWidget( Qt::BottomDockWidgetArea, dock );

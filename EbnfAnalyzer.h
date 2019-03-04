@@ -33,10 +33,10 @@ public:
     static QSet<QByteArray> collectAllTerminalStrings( EbnfSyntax* );
     static QByteArrayList collectAllTerminalProductions( EbnfSyntax* );
 
-    typedef QList<EbnfSyntax::NodeSet> LlkNodes;
+    typedef QList<EbnfSyntax::NodeRefSet> LlkNodes;
     static void calcLlkFirstSet(quint16 k, quint16 curBin, LlkNodes&, const EbnfSyntax::Node* node, FirstFollowSet* );
-    static EbnfSyntax::NodeSet intersectAll( const LlkNodes& lhs, const LlkNodes& rhs );
-    static void calcLlkFirstSet(quint16 k, LlkNodes&, const EbnfSyntax::Node* node, FirstFollowSet* );
+    static EbnfSyntax::NodeRefSet intersectAll( const LlkNodes& lhs, const LlkNodes& rhs );
+    static void calcLlkFirstSet2(quint16 k, LlkNodes&, const EbnfSyntax::Node* node, FirstFollowSet* );
 
     static void checkForAmbiguity( FirstFollowSet*, EbnfErrors*);
     static void checkForAmbiguity( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors*, bool recursive = true );
@@ -44,10 +44,8 @@ protected:
     static QSet<QByteArray> collectAllTerminalStrings( EbnfSyntax::Node* );
     static void findAmbiguousAlternatives( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors* );
     static void findAmbiguousOptionals( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors* );
-    static void reportAmbig(EbnfSyntax::Node* seq, int ambigIdx, const EbnfSyntax::NodeSet& diff, FirstFollowSet*, EbnfErrors* );
+    static void reportAmbig(EbnfSyntax::Node* seq, int ambigIdx, const EbnfSyntax::NodeRefSet& diff, FirstFollowSet*, EbnfErrors* );
     static void calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes&, const EbnfSyntax::Node* node, FirstFollowSet* );
-    typedef QList<const EbnfSyntax::Node*> NodeList;
-    //static NodeList nextNode( quint16& curBin, const EbnfSyntax::Node* node );
 };
 
 #endif // EBNFANALYZER_H

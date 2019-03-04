@@ -209,6 +209,8 @@ void HtmlSyntax::writeCompressedDefs(QTextStream& out, EbnfSyntax::Node* node, H
             writeCompressedDefs( out, node->d_subs[i], stack, level + 1, all );
         }
         break;
+    default:
+        break;
     }
 
     switch( node->d_quant )

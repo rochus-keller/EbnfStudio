@@ -236,7 +236,7 @@ void CocoGen::handlePredicate(QTextStream& out,EbnfSyntax::Node* pred, EbnfSynta
                 out << "&& ";
             if( llkNodes[i].size() > 1 )
                 out << "( ";
-            EbnfSyntax::NodeSet::const_iterator j;
+            EbnfSyntax::NodeRefSet::const_iterator j;
             for( j = llkNodes[i].begin(); j != llkNodes[i].end(); ++j )
             {
                 if( j != llkNodes[i].begin() )

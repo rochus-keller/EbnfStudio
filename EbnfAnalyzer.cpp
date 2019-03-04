@@ -68,14 +68,14 @@ static inline void resize( EbnfAnalyzer::LlkNodes& l, quint16 curBin )
     {
         const int max = curBin + 1 - l.size();
         for( int i = 0; i < max; i++ )
-            l.append( EbnfSyntax::NodeSet() );
+            l.append( EbnfSyntax::NodeRefSet() );
     }
 }
 
 static inline int countNotEmpty( const EbnfAnalyzer::LlkNodes& l )
 {
     int res = 0;
-    foreach( const EbnfSyntax::NodeSet& s, l )
+    foreach( const EbnfSyntax::NodeRefSet& s, l )
         if( !s.isEmpty() )
             res++;
     return res;
@@ -130,7 +130,8 @@ void EbnfAnalyzer::calcLlkFirstSet(quint16 k, quint16 curBin, LlkNodes& res, con
     }
 }
 
-void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& res, const EbnfSyntax::Node* node, FirstFollowSet* tbl)
+void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& res,
+                                    const EbnfSyntax::Node* node, FirstFollowSet* tbl)
 {
     if( node == 0 || node->doIgnore() )
         return;
@@ -204,58 +205,15 @@ void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& 
     }
 }
 
-#if 0
-EbnfAnalyzer::NodeList EbnfAnalyzer::nextNode(quint16& curBin, const EbnfSyntax::Node* node)
-{
-    NodeList res;
-    if( node == 0 || node->doIgnore() )
-        return res;
-    if( const EbnfSyntax::Node* next = node->getNext(&curBin) )
-    {
-        switch( next->d_type )
-        {
-        case EbnfSyntax::Node::Nonterminal:
-        case EbnfSyntax::Node::Terminal:
-            if( !next->doIgnore() )
-                res.append(next);
-            break;
-        case EbnfSyntax::Node::Sequence:
-            foreach( const EbnfSyntax::Node* sub, next->d_subs )
-            {
-                if( !sub->doIgnore() )
-                {
-                    res.append( sub );
-                    break;
-                }
-            }
-            break;
-        case EbnfSyntax::Node::Alternative:
-            foreach( const EbnfSyntax::Node* alt, next->d_subs )
-            {
-                if( !alt->doIgnore() )
-                    res.append( alt );
-            }
-            break;
-        }
-    }else
-    {
-        // gehe entlang node->d_owner->d_usedBy
-        foreach( const EbnfSyntax::Node* use, node->d_owner->d_usedBy )
-            ; // calcLlkFirstSet2(k,curBin,res,use,tbl);
-    }
-    return res;
-}
-#endif
-
-EbnfSyntax::NodeSet EbnfAnalyzer::intersectAll(const EbnfAnalyzer::LlkNodes& lhs, const EbnfAnalyzer::LlkNodes& rhs)
+EbnfSyntax::NodeRefSet EbnfAnalyzer::intersectAll(const EbnfAnalyzer::LlkNodes& lhs, const EbnfAnalyzer::LlkNodes& rhs)
 {
     if( lhs.size() != rhs.size() )
-        return EbnfSyntax::NodeSet();
+        return EbnfSyntax::NodeRefSet();
     int intersects = 0;
-    EbnfSyntax::NodeSet sum;
+    EbnfSyntax::NodeRefSet sum;
     for( int i = 0; i < lhs.size(); i++ )
     {
-        const EbnfSyntax::NodeSet diff = lhs[i] & rhs[i];
+        const EbnfSyntax::NodeRefSet diff = lhs[i] & rhs[i];
         if( ( lhs[i].isEmpty() && rhs[i].isEmpty() ) || !diff.isEmpty() )
         {
             intersects++;
@@ -266,10 +224,10 @@ EbnfSyntax::NodeSet EbnfAnalyzer::intersectAll(const EbnfAnalyzer::LlkNodes& lhs
     if( intersects == lhs.size() )
         return sum;
     else
-        return EbnfSyntax::NodeSet();
+        return EbnfSyntax::NodeRefSet();
 }
 
-void EbnfAnalyzer::calcLlkFirstSet(quint16 k, EbnfAnalyzer::LlkNodes& res, const EbnfSyntax::Node* node, FirstFollowSet* tbl)
+void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, EbnfAnalyzer::LlkNodes& res, const EbnfSyntax::Node* node, FirstFollowSet* tbl)
 {
     calcLlkFirstSet2( k, 0, 0,res, node, tbl );
 }
@@ -313,6 +271,8 @@ void EbnfAnalyzer::checkForAmbiguity(EbnfSyntax::Node* node, FirstFollowSet* set
             checkForAmbiguity( sub, set, errs, recursive );
         }
         break;
+    default:
+        break;
     }
 }
 
@@ -331,7 +291,7 @@ void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollow
             if( a->doIgnore() || b->doIgnore() )
                 continue;
             // TODO: wenn eine Alternative Nullable ist, müsste auch noch ihre Follow mitberücksichtigt werden!
-            const EbnfSyntax::NodeSet diff = set->getFirstSet(a) & set->getFirstSet(b);
+            const EbnfSyntax::NodeRefSet diff = set->getFirstSet(a) & set->getFirstSet(b);
             if( diff.isEmpty() )
                 continue;
 
@@ -346,11 +306,11 @@ void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollow
             if( ll > 0 )
             {
                 EbnfAnalyzer::LlkNodes llkA;
-                calcLlkFirstSet( ll,  llkA, a, set );
+                calcLlkFirstSet2( ll,  llkA, a, set );
                 EbnfAnalyzer::LlkNodes llkB;
-                calcLlkFirstSet( ll, llkB, b, set );
+                calcLlkFirstSet2( ll, llkB, b, set );
 
-                const EbnfSyntax::NodeSet diff = intersectAll( llkA, llkB );
+                const EbnfSyntax::NodeRefSet diff = intersectAll( llkA, llkB );
                 if( llkA.size() == llkB.size() && llkA.size() == ll && diff.isEmpty() )
                     continue;
 
@@ -384,13 +344,13 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
     if( seq->d_type != EbnfSyntax::Node::Sequence )
         return;
 
-    EbnfSyntax::NodeSet upperFollow = set->getFollowSet(seq);
+    EbnfSyntax::NodeRefSet upperFollow = set->getFollowSet(seq);
     for(int i = 0; i < seq->d_subs.size(); i++)
     {
         const EbnfSyntax::Node* a = seq->d_subs[i];
         if( a->doIgnore() || !a->isNullable() )
             continue;
-        EbnfSyntax::NodeSet follow; // = set->getFollowSet(1,a);
+        EbnfSyntax::NodeRefSet follow; // = set->getFollowSet(1,a);
         bool nonNullableFound = false;
         const EbnfSyntax::Node* b = 0;
         for( int j = i + 1; j < seq->d_subs.size(); j++ )
@@ -410,7 +370,7 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
         if( !nonNullableFound )
             follow += upperFollow;
 
-        const EbnfSyntax::NodeSet diff = set->getFirstSet(a) & follow;
+        const EbnfSyntax::NodeRefSet diff = set->getFirstSet(a) & follow;
         if( diff.isEmpty() )
             continue;
 
@@ -425,15 +385,15 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
             if( ll > 0 )
             {
                 EbnfAnalyzer::LlkNodes llkA;
-                calcLlkFirstSet( ll,  llkA, a, set );
+                calcLlkFirstSet2( ll,  llkA, a, set );
 
                 EbnfAnalyzer::LlkNodes llkB;
                 if( b == 0 )
                     calcLlkFirstSet2(ll,0,-1,llkB, seq, set );
                 else
-                    calcLlkFirstSet( ll, llkB, b, set );
+                    calcLlkFirstSet2( ll, llkB, b, set );
 
-                const EbnfSyntax::NodeSet diff = intersectAll( llkA, llkB );
+                const EbnfSyntax::NodeRefSet diff = intersectAll( llkA, llkB );
                 if( llkA.size() == llkB.size() && llkA.size() == ll && diff.isEmpty() )
                     continue;
                 errs->warning(EbnfErrors::Analysis, pred->d_tok.d_lineNr, pred->d_tok.d_colNr,
@@ -445,7 +405,7 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
     }
 }
 
-void EbnfAnalyzer::reportAmbig(EbnfSyntax::Node* sequence, int ambigIdx, const EbnfSyntax::NodeSet& ambigSet,
+void EbnfAnalyzer::reportAmbig(EbnfSyntax::Node* sequence, int ambigIdx, const EbnfSyntax::NodeRefSet& ambigSet,
                                FirstFollowSet* set, EbnfErrors* errs)
 {
     EbnfSyntax::Node* a = sequence->d_subs[ambigIdx];
@@ -458,7 +418,7 @@ void EbnfAnalyzer::reportAmbig(EbnfSyntax::Node* sequence, int ambigIdx, const E
     bool fullAmbig = false;
     for( int j = ambigIdx + 1; j < sequence->d_subs.size(); j++ )
     {
-        const EbnfSyntax::NodeSet diffDiff = ambigSet & set->getFirstSet(sequence->d_subs[j]);
+        const EbnfSyntax::NodeRefSet diffDiff = ambigSet & set->getFirstSet(sequence->d_subs[j]);
         if( !diffDiff.isEmpty() )
         {
             if( diffDiff == ambigSet )

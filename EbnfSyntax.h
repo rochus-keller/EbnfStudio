@@ -102,9 +102,9 @@ public:
         bool operator==( const NodeRef& ) const;
         const EbnfSyntax::Node* operator*() const { return d_node; }
     };
-    typedef QSet<NodeRef> NodeSet;
+    typedef QSet<NodeRef> NodeRefSet;
     typedef QList<NodeRef> NodeRefList;
-    static QString pretty( const NodeSet& );
+    static QString pretty( const NodeRefSet& );
 
     struct IssueData
     {
@@ -144,7 +144,7 @@ protected:
     const Symbol* findSymbolBySourcePosImp( const Node*, quint32 line, quint16 col, bool nonTermOnly ) const;
     void calcLeftRecursion();
     void markLeftRecursion( Definition*,Node* node, NodeList& );
-    NodeSet calcStartsWithNtSet( Node* node );
+    NodeRefSet calcStartsWithNtSet( Node* node );
 private:
     Q_DISABLE_COPY(EbnfSyntax)
     EbnfErrors* d_errs;

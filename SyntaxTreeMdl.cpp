@@ -123,6 +123,8 @@ QVariant SyntaxTreeMdl::data(const QModelIndex& index, int role) const
             case EbnfSyntax::Node::Sequence:
             case EbnfSyntax::Node::Alternative:
                 return QBrush( Qt::blue );
+            default:
+                break;
             }
         }
         break;

@@ -33,7 +33,7 @@ const char* EbnfSyntax::Node::s_typeName[] =
     "Predicate",
 };
 
-QString EbnfSyntax::pretty(const EbnfSyntax::NodeSet& s)
+QString EbnfSyntax::pretty(const EbnfSyntax::NodeRefSet& s)
 {
     QByteArrayList l;
     foreach( const NodeRef& r, s )
@@ -285,6 +285,8 @@ bool EbnfSyntax::resolveAllSymbols(EbnfSyntax::Node *node)
     case Node::Predicate:
         d_backRefs[node->d_tok.d_val].append(node);
         break;
+    default:
+        break;
     }
     foreach( Node* sub, node->d_subs )
     {
@@ -449,13 +451,13 @@ void EbnfSyntax::markLeftRecursion(EbnfSyntax::Definition* start, Node* cur, Ebn
     }
 }
 
-EbnfSyntax::NodeSet EbnfSyntax::calcStartsWithNtSet(EbnfSyntax::Node* node)
+EbnfSyntax::NodeRefSet EbnfSyntax::calcStartsWithNtSet(EbnfSyntax::Node* node)
 {
     if( node == 0 || node->doIgnore() )
-        return NodeSet();
+        return NodeRefSet();
 
     node->d_leftRecursive = false;
-    NodeSet res;
+    NodeRefSet res;
     switch( node->d_type )
     {
     case EbnfSyntax::Node::Alternative:
