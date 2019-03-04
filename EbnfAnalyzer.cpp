@@ -205,6 +205,91 @@ void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& 
     }
 }
 
+bool EbnfAnalyzer::findPath(EbnfSyntax::ConstNodeList& path, const EbnfSyntax::Node* to)
+{
+    if( path.isEmpty() )
+        return false;
+    const EbnfSyntax::Node* node = path.last();
+    if( node->doIgnore() )
+        return false;
+
+    switch( node->d_type )
+    {
+    case EbnfSyntax::Node::Terminal:
+        if( node == to )
+            return true;
+        break;
+    case EbnfSyntax::Node::Nonterminal:
+        if( node->d_def && node->d_def->d_node )
+        {
+            if( path.contains(node->d_def->d_node) )
+                return false;
+            path.append(node->d_def->d_node);
+            if( findPath( path, to ) )
+                return true;
+            path.pop_back();
+        }else if( node == to )
+        {
+            // wie Terinal
+            return true;
+        }
+        break;
+    case EbnfSyntax::Node::Sequence:
+        foreach( EbnfSyntax::Node* sub, node->d_subs )
+        {
+            if( sub->doIgnore() )
+                continue;
+            path.append(sub);
+            if( findPath( path, to ) )
+                return true;
+            path.pop_back();
+            if( !sub->isNullable() )
+                break;
+        }
+        break;
+    case EbnfSyntax::Node::Alternative:
+        foreach( EbnfSyntax::Node* sub, node->d_subs )
+        {
+            if( sub->doIgnore() )
+                continue;
+            path.append(sub);
+            if( findPath( path, to ) )
+                return true;
+            path.pop_back();
+        }
+        break;
+    default:
+        break;
+    }
+    if( path.size() == 1 )
+    {
+        // Wir sind zuoberst und haben noch nichts gefunden
+        if( const EbnfSyntax::Node* next = node->getNext() )
+        {
+            // finde nächsten nach node
+            path.append(next);
+            if( findPath( path, to ) )
+                return true;
+            path.pop_back();
+        }else
+        {
+            // gehe entlang node->d_owner->d_usedBy
+            foreach( const EbnfSyntax::Node* use, node->d_owner->d_usedBy )
+            {
+                const EbnfSyntax::Node* next = use->getNext();
+                if( next )
+                    path.append(next);
+                else
+                    path.append(use);
+                if( findPath( path, to ) )
+                    return true;
+                path.pop_back();
+            }
+        }
+    }
+    return false;
+}
+
 EbnfSyntax::NodeRefSet EbnfAnalyzer::intersectAll(const EbnfAnalyzer::LlkNodes& lhs, const EbnfAnalyzer::LlkNodes& rhs)
 {
     if( lhs.size() != rhs.size() )
@@ -276,6 +361,17 @@ void EbnfAnalyzer::checkForAmbiguity(EbnfSyntax::Node* node, FirstFollowSet* set
     }
 }
 
+EbnfSyntax::ConstNodeList EbnfAnalyzer::findPath(const EbnfSyntax::Node* from, const EbnfSyntax::Node* to)
+{
+    EbnfSyntax::ConstNodeList res;
+    if( from == 0 )
+        return res;
+    res << from;
+    if( !findPath( res, to ) )
+        res.clear();
+    return res;
+}
+
 void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollowSet* set, EbnfErrors* errs)
 {
     if( node->d_type != EbnfSyntax::Node::Alternative )
@@ -328,6 +424,8 @@ void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollow
             {
                 EbnfSyntax::NodeSet diff2 = EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(a) );
                 diff2 += EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(b) );
+//                if( diff.size() != diff2.size() )
+//                    qDebug() << "findAmbigAlts different diff size";
                 errs->error(EbnfErrors::Analysis, node->d_tok.d_lineNr, node->d_tok.d_colNr,
                             QString("alternatives %1 and %2 are LL(1) ambiguous because of %3")
                             .arg(i+1).arg(j+1).arg(EbnfSyntax::pretty(diff)),
@@ -401,12 +499,15 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
                     continue;
                 errs->warning(EbnfErrors::Analysis, pred->d_tok.d_lineNr, pred->d_tok.d_colNr,
                             QString("predicate not effective for LL(%1)").arg(ll),
-                              QVariant::fromValue(EbnfSyntax::IssueData(EbnfSyntax::IssueData::BadPred,pred,b)) );
+                              QVariant::fromValue(EbnfSyntax::IssueData(
+                                EbnfSyntax::IssueData::BadPred,pred, b ? b : seq)) );
             }
         }
         EbnfSyntax::NodeSet diff2 = EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(a) );
         if( b != 0 )
             diff2 += EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(b) );
+//        if( diff.size() != diff2.size() )
+//            qDebug() << "findAmbigOptions different diff size";
         reportAmbig( seq, i, diff, diff2, set, errs );
     }
 }
@@ -440,7 +541,8 @@ void EbnfAnalyzer::reportAmbig(EbnfSyntax::Node* sequence, int ambigIdx, const E
         if( !fullAmbig )
             dots = "...";
         ambig = QString("w. '%1'%2 ").arg(next->d_tok.d_val.toStr()).arg(dots);
-    }
+    }else
+        next = sequence;
 
     errs->warning(EbnfErrors::Analysis, a->d_tok.d_lineNr, a->d_tok.d_colNr,
                 QString("opt. elem. %1 of seq. %2is LL(1) ambig. %3 because of %4")

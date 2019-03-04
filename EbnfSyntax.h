@@ -93,6 +93,7 @@ public:
         const Node* getNext(int* index = 0) const;
         int getLlk() const; // 0..invalid
         void dump(int level = 0) const;
+        QString toString() const;
     };
     typedef QSet<Definition*> DefSet;
 
@@ -108,7 +109,7 @@ public:
 
     struct IssueData
     {
-        enum Type { None, AmbigAlt, AmbigOpt, BadPred, LeftRec } d_type;
+        enum Type { None, AmbigAlt, AmbigOpt, BadPred, LeftRec, DetailItem } d_type;
         const Node* d_ref;
         const Node* d_other;
         ConstNodeList d_list;

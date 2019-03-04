@@ -694,7 +694,23 @@ void EbnfSyntax::Node::dump(int level) const
 
     qDebug() << QString( level * 4, QChar(' ') ).toUtf8().constData() << str.toUtf8().constData();
 	foreach( Node* n, d_subs )
-		n->dump(level+1);
+        n->dump(level+1);
+}
+
+QString EbnfSyntax::Node::toString() const
+{
+    switch( d_type )
+    {
+    case Terminal:
+    case Nonterminal:
+    case Predicate:
+        return d_tok.d_val.toStr();
+    case Sequence:
+        return QLatin1String("<seq>");
+    case Alternative:
+        return QLatin1String("<alt>");
+    }
+    return QString();
 }
 
 

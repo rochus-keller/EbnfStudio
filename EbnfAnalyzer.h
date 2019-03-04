@@ -40,12 +40,15 @@ public:
 
     static void checkForAmbiguity( FirstFollowSet*, EbnfErrors*);
     static void checkForAmbiguity( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors*, bool recursive = true );
+
+    static EbnfSyntax::ConstNodeList findPath( const EbnfSyntax::Node* from, const EbnfSyntax::Node* to );
 protected:
     static QSet<QByteArray> collectAllTerminalStrings( EbnfSyntax::Node* );
     static void findAmbiguousAlternatives( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors* );
     static void findAmbiguousOptionals( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors* );
     static void reportAmbig(EbnfSyntax::Node* seq, int ambigIdx, const EbnfSyntax::NodeRefSet& diff, const EbnfSyntax::NodeSet& ambigSet2, FirstFollowSet*, EbnfErrors* );
     static void calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes&, const EbnfSyntax::Node* node, FirstFollowSet* );
+    static bool findPath( EbnfSyntax::ConstNodeList& path, const EbnfSyntax::Node* to );
 };
 
 #endif // EBNFANALYZER_H

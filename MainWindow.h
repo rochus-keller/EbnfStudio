@@ -63,12 +63,14 @@ protected slots:
     void onAbout();
     void onDetailsDblClicked();
     void onLink(const QString&);
+    void onPathDblClicked();
 
 protected:
     void createMenus();
     void createIssues();
     void createTree();
     void createDetails();
+    void createPathView();
     void createUsedBy();
     bool checkSaved( const QString& title );
 
@@ -79,6 +81,7 @@ private:
     QTreeWidget* d_errView;
     QTreeWidget* d_usedBy;
     QTreeWidget* d_errDetails;
+    QTreeWidget* d_pathView;
     QLabel* d_errText;
     SyntaxTreeMdl* d_mdl;
     FirstFollowSet* d_tbl;

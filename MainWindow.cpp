@@ -65,6 +65,7 @@ MainWindow::MainWindow(QWidget *parent)
     createDetails();
     createTree();
     createUsedBy();
+    createPathView();
 
     setWindowTitle(tr("EbnfStudio") );
 
@@ -116,6 +117,7 @@ void MainWindow::onErrors()
 {
     d_errView->clear();
     d_errDetails->clear();
+    d_pathView->clear();
     QList<EbnfErrors::Entry> errs = d_edit->getErrs()->getErrors().toList();
     std::sort(errs.begin(), errs.end(), errorEntryLessThan );
     //qDebug() << errs.size() << "errors found";
@@ -150,7 +152,8 @@ void MainWindow::onErrorsDblClicked()
         onCursorChanged();
         d_edit->setFocus();
 
-        d_errText->setText(QString("<html><a href='%1'>%1</a> %2</html>").arg(item->text(0)).arg(item->text(1).toHtmlEscaped() ));
+        d_errText->setText(QString("<html><a href='%1'>%1</a> %2</html>").arg(item->text(0)).
+                           arg(item->text(1).toHtmlEscaped() ));
         d_errDetails->clear();
         EbnfSyntax::IssueData d = item->data(0,Qt::UserRole+1).value<EbnfSyntax::IssueData>();
         if( d.d_type )
@@ -162,6 +165,9 @@ void MainWindow::onErrorsDblClicked()
                 i->setText( 1, r->d_owner->d_tok.d_val.toStr());
                 i->setToolTip( 1, i->text(1));
                 i->setData(0,Qt::UserRole, QPoint(r->d_tok.d_colNr,r->d_tok.d_lineNr) );
+                i->setData(1, Qt::UserRole, QVariant::fromValue(EbnfSyntax::IssueData(
+                                      EbnfSyntax::IssueData::DetailItem,d.d_other,r,
+                                                                    EbnfSyntax::ConstNodeList() << d.d_ref )));
             }
             if( d.d_type != EbnfSyntax::IssueData::LeftRec )
                 d_errDetails->sortItems(0,Qt::AscendingOrder);
@@ -496,6 +502,24 @@ void MainWindow::onDetailsDblClicked()
         d_edit->blockSignals(blocked);
         onCursorChanged();
         d_edit->setFocus();
+
+        EbnfSyntax::IssueData d = item->data(1,Qt::UserRole).value<EbnfSyntax::IssueData>();
+        if( d.d_type )
+        {
+            d_pathView->clear();
+            EbnfSyntax::ConstNodeList l = EbnfAnalyzer::findPath( d.d_ref, d.d_other );
+            l = d.d_list + l;
+            foreach( const EbnfSyntax::Node* r, l )
+            {
+                if( r->d_type != EbnfSyntax::Node::Terminal && r->d_type != EbnfSyntax::Node::Nonterminal )
+                    continue;
+                QTreeWidgetItem* i = new QTreeWidgetItem(d_pathView);
+                i->setText( 0, r->toString() );
+                i->setText(1,r->d_owner->d_tok.d_val.toStr());
+                i->setData(0,Qt::UserRole, QPoint(r->d_tok.d_colNr,r->d_tok.d_lineNr) );
+            }
+            d_pathView->resizeColumnToContents(0);
+        }
     }
 }
 
@@ -508,6 +532,20 @@ void MainWindow::onLink(const QString& link)
     d_edit->blockSignals(blocked);
     onCursorChanged();
     d_edit->setFocus();
+}
+
+void MainWindow::onPathDblClicked()
+{
+    QTreeWidgetItem* item = d_pathView->currentItem();
+    if( item )
+    {
+        const bool blocked = d_edit->blockSignals(true);
+        QPoint p = item->data(0,Qt::UserRole).toPoint();
+        d_edit->setCursorPosition( p.y() - 1, p.x() - 1, true );
+        d_edit->blockSignals(blocked);
+        onCursorChanged();
+        d_edit->setFocus();
+    }
 }
 
 void MainWindow::createMenus()
@@ -647,6 +685,26 @@ void MainWindow::createDetails()
     dock->setWidget(pane);
     addDockWidget( Qt::BottomDockWidgetArea, dock );
     connect(d_errDetails, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)), this, SLOT(onDetailsDblClicked()) );
+}
+
+void MainWindow::createPathView()
+{
+    QDockWidget* dock = new QDockWidget( tr("Path"), this );
+    dock->setObjectName("Path");
+    dock->setAllowedAreas( Qt::AllDockWidgetAreas );
+    dock->setFeatures( QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable );
+    d_pathView = new QTreeWidget(dock);
+    d_pathView->setAlternatingRowColors(true);
+    d_pathView->setHeaderHidden(true);
+    d_pathView->setSortingEnabled(true);
+    d_pathView->setAllColumnsShowFocus(true);
+    d_pathView->setRootIsDecorated(false);
+    d_pathView->setColumnCount(2);
+    d_pathView->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    d_pathView->header()->setSectionResizeMode(1, QHeaderView::Stretch);
+    dock->setWidget(d_pathView);
+    addDockWidget( Qt::RightDockWidgetArea, dock );
+    connect(d_pathView, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)), this, SLOT(onPathDblClicked()) );
 }
 
 void MainWindow::createUsedBy()
