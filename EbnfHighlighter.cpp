@@ -48,6 +48,8 @@ EbnfHighlighter::EbnfHighlighter(QTextDocument* doc):QSyntaxHighlighter(doc)
 
     d_format[C_Gray].setForeground( Qt::gray );
 
+    d_format[C_Pragma].setForeground( Qt::darkGray );
+    d_format[C_Pragma].setFontWeight(QFont::Bold);
 }
 
 void EbnfHighlighter::highlightBlock(const QString& text)
@@ -64,7 +66,10 @@ void EbnfHighlighter::highlightBlock(const QString& text)
         case EbnfToken::Invalid:
             break;
         case EbnfToken::Production:
-            f = d_format[C_Prod];
+            if( text.startsWith(QChar('%') ) )
+                f = d_format[C_Pragma];
+            else
+                f = d_format[C_Prod];
             break;
         case EbnfToken::NonTerm:
             f = d_format[C_Nt];

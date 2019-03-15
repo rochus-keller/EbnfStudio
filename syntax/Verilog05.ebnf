@@ -1780,3 +1780,7 @@ BaseValue ::=      // nur decimal_value, binary_value, octal_value oder hex_valu
 SysName ::=        // System name, starting with $
 Ident ::=          // Normal and Escaped ID
 Str ::=			   // Plain String
+
+// Pragmas
+%namespace ::= 'Vl'
+%module ::= 'Verilog'

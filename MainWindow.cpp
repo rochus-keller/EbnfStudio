@@ -365,7 +365,7 @@ void MainWindow::onGenTt()
 {
     ENABLED_IF( !d_edit->getPath().isEmpty() );
 
-    SynTreeGen::generateTt( d_edit->getPath(), d_edit->getSyntax(), "Vl", true );
+    SynTreeGen::generateTt( d_edit->getPath(), d_edit->getSyntax(), true );
 }
 
 void MainWindow::onGenHtml()
@@ -382,10 +382,10 @@ void MainWindow::onGenCoco()
 
     CocoGen gen;
     QFileInfo info(d_edit->getPath());
-    gen.generate( info.absoluteDir().absoluteFilePath( info.completeBaseName() + ".atg"),
-                  d_edit->getSyntax(), d_tbl, true );
-    SynTreeGen::generateTt( d_edit->getPath(), d_edit->getSyntax(), "Vl", false );
-    SynTreeGen::generateTree( d_edit->getPath(), d_edit->getSyntax(), "Vl", true );
+    EbnfSyntax* syn = d_edit->getSyntax();
+    gen.generate( info.absoluteDir().absoluteFilePath( info.completeBaseName() + ".atg"), syn, d_tbl, true );
+    SynTreeGen::generateTt( d_edit->getPath(), syn, false );
+    SynTreeGen::generateTree( d_edit->getPath(), syn, true );
 }
 
 void MainWindow::onGenAntlr()

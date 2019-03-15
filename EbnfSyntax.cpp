@@ -104,7 +104,24 @@ void EbnfSyntax::clear()
 		delete d;
     d_defs.clear();
     d_order.clear();
+    foreach( Definition* d, d_pragmas )
+        delete d;
+    d_pragmas.clear();
     d_finished = false;
+}
+
+static bool isTerminalOrSeqOfTerminals( const EbnfSyntax::Node* n )
+{
+    if( n == 0 )
+        return false;
+    if( n->d_type != EbnfSyntax::Node::Sequence && n->d_type != EbnfSyntax::Node::Terminal )
+        return false;
+    foreach( const EbnfSyntax::Node* sub, n->d_subs )
+    {
+        if( sub->d_type != EbnfSyntax::Node::Terminal )
+            return false;
+    }
+    return true;
 }
 
 bool EbnfSyntax::addDef(EbnfSyntax::Definition* d)
@@ -120,15 +137,55 @@ bool EbnfSyntax::addDef(EbnfSyntax::Definition* d)
         return false;
     }else
     {
-        d_defs.insert( d->d_tok.d_val, d );
-        d_order.append( d );
+        if( d->d_tok.d_val.toBa().startsWith('%') )
+        {
+            Definition*& def = d_pragmas[ d->d_tok.d_val ];
+            if( def != 0 )
+            {
+                if( d_errs )
+                    d_errs->warning( EbnfErrors::Semantics, d->d_tok.d_lineNr, d->d_tok.d_colNr,
+                                   QObject::tr("overwriting pragma '%1'").arg(d->d_tok.d_val.toStr()) );
+                delete def;
+            }
+            def = d;
+        }else
+        {
+            d_defs.insert( d->d_tok.d_val, d );
+            d_order.append( d );
+        }
         return true;
     }
 }
 
-const EbnfSyntax::Definition*EbnfSyntax::getDef(const QByteArray& name) const
+const EbnfSyntax::Definition*EbnfSyntax::getDef(const EbnfToken::Sym& name) const
 {
     return d_defs.value(name);
+}
+
+QByteArrayList EbnfSyntax::getPragma(const QByteArray& name) const
+{
+    const Definition* d = d_pragmas.value( EbnfToken::getSym(name) );
+    QByteArrayList res;
+    if( d && d->d_node )
+    {
+        if( d->d_node->d_type == Node::Terminal )
+            res << d->d_node->d_tok.d_val.toBa();
+        else
+        {
+            foreach( const Node* sub, d->d_node->d_subs )
+                res << sub->d_tok.d_val.toBa();
+        }
+    }
+    return res;
+}
+
+QByteArray EbnfSyntax::getPragmaFirst(const QByteArray& name) const
+{
+    QByteArrayList str = getPragma(name);
+    if( !str.isEmpty() )
+        return str.first();
+    else
+        return QByteArray();
 }
 
 bool EbnfSyntax::finishSyntax()
@@ -139,6 +196,7 @@ bool EbnfSyntax::finishSyntax()
         return false;
     calculateNullable();
     calcLeftRecursion();
+    checkPragmas();
     d_finished = true;
     return true;
 }
@@ -484,6 +542,18 @@ void EbnfSyntax::markLeftRecursion(EbnfSyntax::Definition* start, Node* cur, Ebn
     case EbnfSyntax::Node::Predicate:
         // ignore
         break;
+    }
+}
+
+void EbnfSyntax::checkPragmas()
+{
+    foreach( const Definition* d, d_pragmas )
+    {
+        if( !isTerminalOrSeqOfTerminals( d->d_node ) )
+        {
+            d_errs->error( EbnfErrors::Semantics, d->d_tok.d_lineNr, d->d_tok.d_colNr,
+                           QObject::tr("right hand side of pragma '%1' must be a sequence of terminals").arg(d->d_tok.d_val.toStr()) );
+        }
     }
 }
 

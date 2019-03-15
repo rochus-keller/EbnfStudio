@@ -38,6 +38,15 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
     if( syn == 0 || syn->getOrderedDefs().isEmpty() )
         return false;
 
+    Q_ASSERT( syn != 0 );
+
+    const QByteArray nameSpace = syn->getPragmaFirst("%namespace");
+    const QByteArray nameSpace2 = nameSpace.isEmpty() ? nameSpace : ( nameSpace + "::" );
+    QByteArray module = syn->getPragmaFirst("%module");
+    if( !module.isEmpty() )
+        module = module + "/";
+    const QByteArrayList suppress = syn->getPragma("%suppress");
+
     d_tbl = tbl;
 
     const EbnfSyntax::Definition* root = syn->getOrderedDefs()[0];
@@ -51,26 +60,28 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
     if( buildAst )
     {
         out << "#include <QStack>" << endl;
-        out << "#include <VlSynTree.h>" << endl;
+        out << "#include <" << module << nameSpace << "SynTree.h>" << endl;
         out << "COMPILER " << root->d_tok.d_val.toBa() << endl;
 
         out << endl;
 
 
-        out << "\tVl::SynTree d_root;" << endl;
-        out << "\tQStack<Vl::SynTree*> d_stack;" << endl;
+        out << "\t" << nameSpace2 << "SynTree d_root;" << endl;
+        out << "\tQStack<" << nameSpace2 << "SynTree*> d_stack;" << endl;
 
         out << "\t" << "void addTerminal() {" << endl;
-        /*
-        out << "\t\t" << "if( " // TODO: braucht es das?
-               " d_cur.d_type != Vl::Tok_Semi "
-               "&& d_cur.d_type != Vl::Tok_Lbrack "
-               "&& d_cur.d_type != Vl::Tok_Rbrack "
-               "&& d_cur.d_type != Vl::Tok_Hash "
-               "&& d_cur.d_type != Vl::Tok_At "
-               "){" << endl;
-               */
-        out << "\t\t" << "Vl::SynTree* n = new Vl::SynTree( d_cur ); d_stack.top()->d_children.append(n);" << endl;
+
+        if( !suppress.isEmpty() )
+        {
+            out << "\t\t" << "if( ";
+            for( int i = 0; i < suppress.size(); i++ )
+                out << ( i == 0 ? "" : "&& " ) << "d_cur.d_type != " << nameSpace2 << "Tok_" << GenUtils::symToString(suppress[i]) << " ";
+            out << "){" << endl << "\t";
+        }
+        out << "\t\t" << nameSpace2 << "SynTree* n = new " <<
+               nameSpace2 << "SynTree( d_cur ); d_stack.top()->d_children.append(n);" << endl;
+        if( !suppress.isEmpty() )
+            out << "\t\t}" << endl;
         out << "\t}" << endl;
 
     }
@@ -118,7 +129,8 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
         out << GenUtils::escapeDollars( d->d_tok.d_val ) << " = " << endl << "    ";
         const bool transparent = d->d_tok.d_op == EbnfToken::Transparent;
         if( buildAst && !transparent )
-            out << "(. Vl::SynTree* n = new Vl::SynTree( Vl::SynTree::R_" << GenUtils::escapeDollars( d->d_tok.d_val ) <<
+            out << "(. " << nameSpace2 << "SynTree* n = new " << nameSpace2 << "SynTree( " <<
+                   nameSpace2 << "SynTree::R_" << GenUtils::escapeDollars( d->d_tok.d_val ) <<
                    ", d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); .) ( ";
         writeNode( out, d->d_node, true, buildAst );
 

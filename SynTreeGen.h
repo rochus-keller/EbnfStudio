@@ -30,8 +30,8 @@ class SynTreeGen
 public:
     typedef QList< QPair<QByteArray,QByteArray> > TokenNameValueList; // Value empty -> Title
     static TokenNameValueList generateTokenList( EbnfSyntax* );
-    static bool generateTree( const QString& ebnfPath, EbnfSyntax*, const QByteArray& nameSpace = "Vl", bool includeNt = true );
-    static bool generateTt(const QString& ebnfPath, EbnfSyntax*, const QByteArray& nameSpace = "Vl", bool includeNt = false );
+    static bool generateTree( const QString& ebnfPath, EbnfSyntax*, bool includeNt = true );
+    static bool generateTt(const QString& ebnfPath, EbnfSyntax*, bool includeNt = false );
 private:
     SynTreeGen();
 };

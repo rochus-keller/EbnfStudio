@@ -122,13 +122,16 @@ public:
 
     void clear();
 
-    typedef QHash<QByteArray,Definition*> Definitions;
+    typedef QHash<EbnfToken::Sym,Definition*> Definitions;
     typedef QList<Definition*> OrderedDefs;
 
     bool addDef( Definition* ); // transfer ownership
     const Definitions& getDefs() const { return d_defs; }
-    const Definition* getDef(const QByteArray& name ) const;
+    const Definition* getDef(const EbnfToken::Sym& name ) const;
     const OrderedDefs& getOrderedDefs() const { return d_order; }
+    const Definitions& getPragmas() const { return d_pragmas; }
+    QByteArrayList getPragma(const QByteArray& name ) const;
+    QByteArray getPragmaFirst(const QByteArray& name ) const;
 
     bool finishSyntax();
 
@@ -150,12 +153,14 @@ protected:
     const Symbol* findSymbolBySourcePosImp( const Node*, quint32 line, quint16 col, bool nonTermOnly ) const;
     void calcLeftRecursion();
     void markLeftRecursion( Definition*,Node* node, NodeList& );
+    void checkPragmas();
     NodeRefSet calcStartsWithNtSet( Node* node );
 private:
     Q_DISABLE_COPY(EbnfSyntax)
     EbnfErrors* d_errs;
     Definitions d_defs;
     OrderedDefs d_order;
+    Definitions d_pragmas;
     typedef QHash<EbnfToken::Sym,ConstNodeList> BackRefs;
     BackRefs d_backRefs;
     bool d_finished;

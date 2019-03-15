@@ -60,7 +60,7 @@ EbnfToken EbnfLexer::nextTokenImp()
         if( ch == '/' && lookAhead(1) == '/' )
             return token(EbnfToken::Comment, d_line.size() - d_colNr, d_line.mid( d_colNr + 2 ).trimmed() );
 
-        if( ::isalnum(ch) || ch == '$' )
+        if( ::isalnum(ch) || ch == '$' || ch == '%' )
         {
             // Identifier oder Reserved Word
             EbnfToken t = ident();
@@ -235,11 +235,12 @@ void EbnfLexer::nextLine()
 
 EbnfToken EbnfLexer::ident()
 {
-    int off = 0;
+    int off = 1; // off == 0 wurde bereits dem ident zugeordnet
     while( true )
     {
         if( (d_colNr+off) >= d_line.size() ||
-                ( !::isalnum(d_line[d_colNr+off]) && d_line[d_colNr+off] != '_' && d_line[d_colNr+off] != '$' ) )
+                ( !::isalnum(d_line[d_colNr+off]) && d_line[d_colNr+off] != '_' &&
+                  d_line[d_colNr+off] != '$' ) )
             break;
         else
             off++;
