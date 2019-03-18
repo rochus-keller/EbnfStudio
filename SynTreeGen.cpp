@@ -23,6 +23,7 @@
 #include "GenUtils.h"
 #include <QDir>
 #include <QTextStream>
+#include <QtDebug>
 
 bool SynTreeGen::generateTree(const QString& ebnfPath, EbnfSyntax* syn, bool includeNt)
 {
@@ -61,7 +62,8 @@ bool SynTreeGen::generateTree(const QString& ebnfPath, EbnfSyntax* syn, bool inc
     DefSort sort;
     foreach( const EbnfSyntax::Definition* d, syn->getDefs() )
     {
-        if( d->d_tok.d_op != EbnfToken::Transparent && !d->d_usedBy.isEmpty() )
+        if( d->d_tok.d_op != EbnfToken::Transparent && d->d_node != 0 )
+            // Add the symol unless explicitly suppressed or pseudoterminal, && !d->d_usedBy.isEmpty() )
             sort.insert( GenUtils::escapeDollars( d->d_tok.d_val ), d );
     }
 
@@ -135,7 +137,7 @@ SynTreeGen::SynTreeGen()
 
 }
 
-SynTreeGen::TokenNameValueList SynTreeGen::generateTokenList(EbnfSyntax* syn)
+SynTreeGen::TokenNameValueList SynTreeGen::generateTokenList(EbnfSyntax* syn, int* startOfSpecial )
 {
     TokenNameValueList res;
 
@@ -156,6 +158,9 @@ SynTreeGen::TokenNameValueList SynTreeGen::generateTokenList(EbnfSyntax* syn)
         }
         res.append( qMakePair(GenUtils::symToString(tokens[i]),tokens[i]) );
     }
+    if( startOfSpecial )
+        *startOfSpecial = res.size();
+
     res.append( qMakePair(QByteArray("Specials"),QByteArray()) );
 
     foreach( const QByteArray& t, specials )
@@ -167,7 +172,92 @@ SynTreeGen::TokenNameValueList SynTreeGen::generateTokenList(EbnfSyntax* syn)
     return res;
 }
 
-bool SynTreeGen::generateTt(const QString& ebnfPath, EbnfSyntax* syn, bool includeNt )
+static inline bool lessThan( const QPair<QByteArray,QByteArray>& lhs, const QPair<QByteArray,QByteArray>& rhs )
+{
+    return lhs.second < rhs.second;
+}
+
+struct CharBin
+{
+    char d_c;
+    QByteArray d_tok;
+    QList<CharBin*> d_subs;
+    CharBin(char c = 0 ):d_c(c){}
+    ~CharBin(){ foreach( CharBin* b, d_subs ) delete b; }
+    void print(int level = 0)
+    {
+        qDebug() << QByteArray(level*2,'_').data() << d_c << ( !d_tok.isEmpty() ? d_tok : "" );
+        foreach( CharBin* b, d_subs )
+            b->print(level+1);
+    }
+};
+
+static void fillCharBin(const SynTreeGen::TokenNameValueList& tokens, int start, int len, int depth, CharBin* super )
+{
+    int n = start;
+    const int size = qMin( tokens.size(), start + len );
+    while( n < size )
+    {
+        if( depth < tokens[n].second.size() )
+        {
+            const char leadChar = tokens[n].second[depth];
+            int count = 1;
+            while( n+count < size && depth < tokens[n+count].second.size() &&
+                   tokens[n+count].second[depth] == leadChar )
+                count++;
+            CharBin* bin = new CharBin( leadChar );
+            super->d_subs.append( bin );
+            fillCharBin( tokens, n, count, depth + 1, bin );
+            n += count;
+        }else
+        {
+            if( !tokens[n].second.isEmpty() )
+                super->d_tok = tokens[n].first;
+            n++;
+        }
+    }
+}
+
+static inline QByteArray escChar( char c )
+{
+    if( c == '\'' )
+        return "\\'";
+    else
+        return QByteArray(1,c);
+}
+
+static void generateLexer( QTextStream& bout, const CharBin& bin, int level = 0 )
+{
+    const QByteArray ws = "\t\t" + QByteArray(level,'\t');
+    const QByteArray plus = level > 0 ? QByteArray("+") + QByteArray::number(level) : QByteArray();
+    if( bin.d_subs.size() == 1 )
+    {
+        bout << ws << "if( at(str,i" << plus << ") == '" <<
+                escChar(bin.d_subs[0]->d_c) << "' ){" << endl;
+        generateLexer(bout, *bin.d_subs[0], level+1 );
+        if( !bin.d_tok.isEmpty() )
+            bout << ws << "} else {" << endl << ws << "\t"
+                 << "res = Tok_" << bin.d_tok << "; i += " << level << ";" << endl;
+        bout << ws << "}" << endl;
+    }else if( !bin.d_subs.empty() )
+    {
+        bout << ws << "switch( at(str,i" << plus << ") ){" << endl;
+        for( int i = 0; i < bin.d_subs.size(); i++ )
+        {
+            bout << ws << "case '" << escChar(bin.d_subs[i]->d_c) << "':" << endl;
+            generateLexer(bout, *bin.d_subs[i], level+1 );
+            bout << ws << "\t" << "break;" << endl;
+        }
+        if( !bin.d_tok.isEmpty() )
+            bout << ws << "default:" << endl
+                 << ws << "\t" << "res = Tok_" << bin.d_tok << "; i += " << level << ";" << endl
+                 << ws << "\t" << "break;" << endl;
+        bout << ws << "}" << endl;
+    }else if( !bin.d_tok.isEmpty() )
+        bout << ws << "res = Tok_" << bin.d_tok << "; i += " << level << ";" << endl;
+}
+
+bool SynTreeGen::generateTt(const QString& ebnfPath, EbnfSyntax* syn, bool includeLex, bool includeNt )
 {
     Q_ASSERT( syn != 0 );
 
@@ -184,12 +274,15 @@ bool SynTreeGen::generateTt(const QString& ebnfPath, EbnfSyntax* syn, bool inclu
     hout << "#ifndef " << stopLabel << endl;
     hout << "#define " << stopLabel << endl;
     hout << "// This file was automatically generated by EbnfStudio; don't modify it!" << endl;
-    hout << endl;
+    hout << endl << endl;
+
+    hout << "#include <QByteArray>" << endl << endl;
 
     if( !nameSpace.isEmpty() )
         hout << "namespace " << nameSpace << " {" << endl;
 
-    TokenNameValueList tokens = generateTokenList(syn);
+    int startOfSpecial = 0;
+    TokenNameValueList tokens = generateTokenList(syn,&startOfSpecial);
 
     hout << "\t" << "enum TokenType {" << endl;
     hout << "\t\t" << "Tok_Invalid = 0," << endl;
@@ -223,6 +316,9 @@ bool SynTreeGen::generateTt(const QString& ebnfPath, EbnfSyntax* syn, bool inclu
     hout << "\t" << "bool tokenTypeIsSpecial( int );" << endl;
     if( includeNt )
         hout << "\t" << "bool tokenTypeIsNonterminal( int );" << endl;
+    if( includeLex )
+        hout << "\t" << "TokenType tokenTypeFromString( const QByteArray& str, int* pos = 0 );" << endl;
+
 
     if( !nameSpace.isEmpty() )
         hout << "}" << endl; // end namespace
@@ -313,8 +409,38 @@ bool SynTreeGen::generateTt(const QString& ebnfPath, EbnfSyntax* syn, bool inclu
         bout << "\t" << "}" << endl; // function
     }
 
+    if( includeLex )
+    {
+        bout << "\t" << "static inline char at( const QByteArray& str, int i ){" << endl;
+        bout << "\t\t" << "return ( i >= 0 && i < str.size() ? str[i] : 0 );" << endl;
+        bout << "\t" << "}" << endl; // function
+
+        /*
+        bout << "\t" << "static bool cmp( const QByteArray& str, int i, const char* pat, int s ){" << endl;
+        bout << "\t\t" << "if( i + s > str.size() ) return false;" << endl;
+        bout << "\t\t" << "for( int n = 0; n < s; n++ )" << endl;
+        bout << "\t\t\t" << "if( pat[n] != str[n+i] ) return false;" << endl;
+        bout << "\t\t" << "return true;" << endl;
+        bout << "\t" << "}" << endl; // function
+        */
+
+        bout << "\t" << "TokenType tokenTypeFromString( const QByteArray& str, int* pos ) {" << endl;
+        bout << "\t\t" << "int i = ( pos != 0 ? *pos: 0 );" << endl;
+        bout << "\t\t" << "TokenType res = Tok_Invalid;" << endl;
+        tokens = tokens.mid(0,startOfSpecial);
+        std::sort( tokens.begin(), tokens.end(), lessThan );
+        CharBin bin;
+        fillCharBin( tokens, 0, tokens.size(), 0, &bin );
+        //bin.print();
+        generateLexer( bout, bin );
+        bout << "\t\t" << "if(pos) *pos = i;" << endl;
+        bout << "\t\t" << "return res;" << endl;
+        bout << "\t" << "}" << endl; // function
+    }
+
     if( !nameSpace.isEmpty() )
         bout << "}" << endl; // namespace
     return true;
 }
+
 

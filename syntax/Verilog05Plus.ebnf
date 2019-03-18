@@ -1964,4 +1964,4 @@ Str ::=			   // Plain String
 // Pragmas
 %namespace ::= 'Vl'
 %module ::= 'Verilog'
-%suppress ::= ';' '[' ']' '#' '@'
+//%suppress ::= ';' '[' ']' '#' '@'

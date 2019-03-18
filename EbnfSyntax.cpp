@@ -114,11 +114,12 @@ static bool isTerminalOrSeqOfTerminals( const EbnfSyntax::Node* n )
 {
     if( n == 0 )
         return false;
-    if( n->d_type != EbnfSyntax::Node::Sequence && n->d_type != EbnfSyntax::Node::Terminal )
+    if( n->d_type != EbnfSyntax::Node::Sequence && n->d_type != EbnfSyntax::Node::Terminal &&
+            n->d_type != EbnfSyntax::Node::Nonterminal )
         return false;
     foreach( const EbnfSyntax::Node* sub, n->d_subs )
     {
-        if( sub->d_type != EbnfSyntax::Node::Terminal )
+        if( sub->d_type != EbnfSyntax::Node::Terminal && sub->d_type != EbnfSyntax::Node::Nonterminal )
             return false;
     }
     return true;
@@ -552,7 +553,7 @@ void EbnfSyntax::checkPragmas()
         if( !isTerminalOrSeqOfTerminals( d->d_node ) )
         {
             d_errs->error( EbnfErrors::Semantics, d->d_tok.d_lineNr, d->d_tok.d_colNr,
-                           QObject::tr("right hand side of pragma '%1' must be a sequence of terminals").arg(d->d_tok.d_val.toStr()) );
+                           QObject::tr("right hand side of pragma '%1' must be a sequence of (non)terminals").arg(d->d_tok.d_val.toStr()) );
         }
     }
 }

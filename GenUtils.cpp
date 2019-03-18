@@ -62,7 +62,7 @@ QByteArray GenUtils::symToString(const QByteArray& str)
         map.insert("*/", "Rcmt");
         map.insert("<=", "Leq");
         map.insert(">=", "Geq");
-        map.insert("#0", "HashZero");
+        // map.insert("#0", "HashZero");
     }
     QByteArray res = map.value(str);
     if( !res.isEmpty() )
