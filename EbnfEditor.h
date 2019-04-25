@@ -60,8 +60,8 @@ public:
 
     void getCursorPosition(int *line,int *col = 0);
     void setCursorPosition(int line, int col, bool center = false);
-    typedef QList<const EbnfSyntax::Node*> NodeList;
-    void markNonTerms(const NodeList& );
+    typedef QList<const EbnfSyntax::Symbol*> SymList;
+    void markNonTerms(const SymList& );
     void clearNonTerms();
     void updateExtraSelections();
 
@@ -119,6 +119,7 @@ protected:
     void updateTabWidth();
     void find(bool fromTop);
     void parseText(QByteArray);
+    void fixIndent();
 
     // overrides
     void resizeEvent(QResizeEvent *event);

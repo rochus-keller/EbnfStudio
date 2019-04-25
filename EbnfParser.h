@@ -38,6 +38,10 @@ public:
     bool parse( EbnfLexer* );
     EbnfSyntax* getSyntax();
 
+    static int startOfNws( const QByteArray& line );
+    enum IeeeLineKind { StartProduction, ContinueProduction, EmptyLine, CommentLine, TextLine };
+    static IeeeLineKind guessKindOfIeeeLine( const QByteArray& line );
+    static QByteArrayList tokenizeIeeeLine(const QByteArray& line );
 protected:
     EbnfToken nextToken();
     bool error( const EbnfToken& t, const QString& msg = QString() );

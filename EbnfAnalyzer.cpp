@@ -422,11 +422,10 @@ void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollow
 
             if( !diff.isEmpty() )
             {
+                const EbnfSyntax::Node* aa = EbnfSyntax::firstVisibleElementOf(a);
                 EbnfSyntax::NodeSet diff2 = EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(a) );
                 diff2 += EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(b) );
-//                if( diff.size() != diff2.size() )
-//                    qDebug() << "findAmbigAlts different diff size";
-                errs->error(EbnfErrors::Analysis, node->d_tok.d_lineNr, node->d_tok.d_colNr,
+                errs->error(EbnfErrors::Analysis, aa->d_tok.d_lineNr, aa->d_tok.d_colNr,
                             QString("alternatives %1 and %2 are LL(1) ambiguous because of %3")
                             .arg(i+1).arg(j+1).arg(EbnfSyntax::pretty(diff)),
                             QVariant::fromValue(EbnfSyntax::IssueData(

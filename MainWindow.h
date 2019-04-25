@@ -47,6 +47,7 @@ protected slots:
     void onOpen();
     void onNew();
     void onTransformHtml();
+    void onTransformIeeeEbnf();
     void onSyntaxUpdated();
     void onTreeDblClicked();
     void onExpandSelected();

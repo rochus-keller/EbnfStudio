@@ -55,8 +55,9 @@ public:
         bool d_repeatable;
         bool d_directLeftRecursive;
         bool d_indirectLeftRecursive;
+        bool d_notReachable;
         Definition(const EbnfToken& tok):Symbol(tok),d_node(0),d_nullable(false),d_repeatable(false),
-            d_directLeftRecursive(false),d_indirectLeftRecursive(false){}
+            d_directLeftRecursive(false),d_indirectLeftRecursive(false),d_notReachable(false){}
         ~Definition() { if( d_node ) delete d_node; }
         bool doIgnore() const;
         bool isNullable() const { return d_nullable; }
@@ -149,6 +150,7 @@ public:
 protected:
     bool resolveAllSymbols();
     void calculateNullable();
+    void checkReachability();
     bool resolveAllSymbols( Node *node );
     const Symbol* findSymbolBySourcePosImp( const Node*, quint32 line, quint16 col, bool nonTermOnly ) const;
     void calcLeftRecursion();

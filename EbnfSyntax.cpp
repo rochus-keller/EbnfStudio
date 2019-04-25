@@ -195,6 +195,7 @@ bool EbnfSyntax::finishSyntax()
         return true;
     if( !resolveAllSymbols() )
         return false;
+    checkReachability();
     calculateNullable();
     calcLeftRecursion();
     checkPragmas();
@@ -221,8 +222,17 @@ bool EbnfSyntax::resolveAllSymbols()
             resolveAllSymbols( node );
         }
 	}
-//    for( BackRefs::const_iterator i = d_backRefs.begin(); i != d_backRefs.end(); ++i )
-//        qDebug() << i.key().toStr() << (void*)i.key().data(); //  << pretty(i.value());
+    for( int j = 1; j < d_order.size(); j++ ) // ignore first
+    {
+        Definition* d = d_order[j];
+        if( !d->doIgnore() && d->d_usedBy.isEmpty() && d->d_node != 0 )
+        {
+            if( d_errs )
+                d_errs->warning( EbnfErrors::Semantics, d->d_tok.d_lineNr, d->d_tok.d_colNr,
+                                 QObject::tr("unused production '%1'").arg(d->d_tok.d_val.c_str() ));
+        }
+    }
+
     if( d_errs )
         return d_errs->getErrCount() == 0;
     else
@@ -268,6 +278,40 @@ void EbnfSyntax::calculateNullable()
             qDebug() << d->d_tok.d_val << "is nullable";
     }
 #endif
+}
+
+void EbnfSyntax::checkReachability()
+{
+    bool changed;
+    do
+    {
+        changed = false;
+        foreach( Definition* d, d_order )
+        {
+            if( d->d_usedBy.isEmpty() || d->doIgnore() )
+                continue; // unused already checked
+
+            bool atLeastOneIsReachable = false;
+            foreach( const Node* n, d->d_usedBy )
+            {
+                if( !n->doIgnore() && !n->d_owner->doIgnore() )
+                {
+                    atLeastOneIsReachable = true;
+                    break;
+                }
+            }
+            const bool notReachable = !atLeastOneIsReachable;
+            // qDebug() << d->d_tok.d_val.c_str() << atLeastOneIsReachable << d->doIgnore() << d->d_notReachable;
+            if( notReachable != d->d_notReachable )
+            {
+                if( d_errs )
+                    d_errs->warning( EbnfErrors::Semantics, d->d_tok.d_lineNr, d->d_tok.d_colNr,
+                                     QObject::tr("production not reachable '%1'").arg(d->d_tok.d_val.c_str() ));
+                changed = true;
+                d->d_notReachable = notReachable;
+            }
+        }
+    }while( changed );
 }
 
 static inline bool isHit( const EbnfSyntax::Symbol* sym, quint32 line, quint16 col )
@@ -603,7 +647,7 @@ EbnfSyntax::NodeRefSet EbnfSyntax::calcStartsWithNtSet(EbnfSyntax::Node* node)
 
 bool EbnfSyntax::Definition::doIgnore() const
 {
-    return d_tok.d_op == EbnfToken::Skip;
+    return d_tok.d_op == EbnfToken::Skip || d_notReachable;
 }
 
 void EbnfSyntax::Definition::dump() const

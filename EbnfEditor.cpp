@@ -65,9 +65,15 @@ static inline int calcPosFromIndent( const QTextBlock& b, int indent )
     return b.position();
 }
 
-static inline int calcIndentsOfLine( const QTextBlock& b, int* off = 0, bool* onlyWhitespace = 0 )
+static inline int calcIndentsOfLine( const QTextBlock& b, int* off = 0, bool* onlyWhitespace = 0, bool* rmWhitespace = 0 )
 {
+    if( onlyWhitespace )
+        *onlyWhitespace = false;
+    if( off )
+        *off = 0;
+
     const QString text = b.text();
+
     int spaces = 0;
     int i;
     for( i = 0; i < text.size(); i++ )
@@ -87,6 +93,25 @@ static inline int calcIndentsOfLine( const QTextBlock& b, int* off = 0, bool* on
     }
     if( onlyWhitespace )
         *onlyWhitespace = ( i >= text.size() );
+
+    if( rmWhitespace != 0 )
+    {
+        const int assigPos = text.indexOf("::=");
+        const int commentPos = text.indexOf("//");
+
+        if( commentPos == *off )
+        {
+            *rmWhitespace = true;
+            return 0; // Ziehe Zeilen nur mit Comment nach Links
+        }
+
+        if( assigPos != -1 && ( commentPos == -1 || assigPos < commentPos ) )
+        {
+            *rmWhitespace = true;
+            return 0; // Ziehe Zeilen mit einer Production nach links
+        }
+    }
+
     return spaces / s_charPerTab;
 }
 
@@ -269,16 +294,16 @@ void EbnfEditor::setCursorPosition(int line, int col, bool center )
     }
 }
 
-void EbnfEditor::markNonTerms(const NodeList& s)
+void EbnfEditor::markNonTerms(const SymList& syms)
 {
     d_nonTerms.clear();
     QTextCharFormat format;
     format.setBackground( QColor(247,245,243) );
-    foreach( const EbnfSyntax::Node* n, s )
+    foreach( const EbnfSyntax::Symbol* s, syms )
     {
-        QTextCursor c( document()->findBlockByNumber( n->d_tok.d_lineNr - 1) );
-        c.setPosition( c.position() + n->d_tok.d_colNr - 1 );
-        c.setPosition( c.position() + n->d_tok.d_val.size(), QTextCursor::KeepAnchor );
+        QTextCursor c( document()->findBlockByNumber( s->d_tok.d_lineNr - 1) );
+        c.setPosition( c.position() + s->d_tok.d_colNr - 1 );
+        c.setPosition( c.position() + s->d_tok.d_val.size(), QTextCursor::KeepAnchor );
 
         QTextEdit::ExtraSelection sel;
         sel.format = format;
@@ -464,12 +489,13 @@ void EbnfEditor::handleFind()
 {
 	ENABLED_IF( true );
     bool ok	= false;
+    const QString sel = textCursor().selectedText();
 	QString res = QInputDialog::getText( this, tr("Find Text"),
-		tr("Enter a string to look for:"), QLineEdit::Normal, "", &ok );
+        tr("Enter a string to look for:"), QLineEdit::Normal, sel, &ok );
 	if( !ok )
 		return;
     d_find = res;
-	find( true );
+    find( sel.isEmpty() );
 }
 
 void EbnfEditor::handleFindAgain()
@@ -529,28 +555,8 @@ void EbnfEditor::handleFixIndent()
 
     QTextCursor cur = textCursor();
 
-    const int selStart = cur.selectionStart();
-    const int selEnd = cur.selectionEnd();
-    Q_ASSERT( selStart <= selEnd );
-
-    QTextBlock b = document()->findBlock( selStart );
     cur.beginEditBlock();
-    do
-    {
-        int off = 0;
-        bool onlyWs;
-        const int indent = calcIndentsOfLine(b,&off,&onlyWs);
-        if( off != 0 )
-        {
-            cur.setPosition( b.position() );
-            cur.setPosition( b.position() + off, QTextCursor::KeepAnchor );
-            if( onlyWs )
-                cur.deleteChar();
-            else
-                cur.insertText( QString( indent == 0 && off != 0 ? 1 : indent, QChar('\t') ) );
-        }
-        b = b.next();
-    }while( b.isValid() && b.position() < selEnd );
+    fixIndent();
     cur.endEditBlock();
 }
 
@@ -566,9 +572,11 @@ void EbnfEditor::find(bool fromTop)
 		col++;
 	const int count = lineCount();
 	int j = -1;
-	for( int i = qMax(line,0); i < count; i++ )
+    const int start = qMax(line,0);
+    bool turnedAround = false;
+    for( int i = start; i < count; i++ )
 	{
-        j = textLine( i ).indexOf( d_find, col );
+        j = textLine( i ).indexOf( d_find, col,Qt::CaseInsensitive );
 		if( j != -1 )
 		{
 			line = i;
@@ -576,7 +584,12 @@ void EbnfEditor::find(bool fromTop)
 			break;
 		}else if( i < count )
 			col = 0;
-	}
+        if( j == -1 && start != 0 && !turnedAround && i == count - 1 )
+        {
+            turnedAround = true;
+            i = -1;
+        }
+    }
 	if( j != -1 )
 	{
 		setCursorPosition( line, col + d_find.size() );
@@ -617,6 +630,38 @@ void EbnfEditor::parseText(QByteArray ba)
     emit sigSyntaxUpdated();
     updateExtraSelections();
     //p.getSyntax()->dump();
+}
+
+void EbnfEditor::fixIndent()
+{
+    QTextCursor cur = textCursor();
+
+    const int selStart = cur.selectionStart();
+    const int selEnd = cur.selectionEnd();
+    Q_ASSERT( selStart <= selEnd );
+
+    QTextBlock b = document()->findBlock( selStart );
+    do
+    {
+        int startOfNws = 0;
+        bool onlyWs;
+        bool rmWs;
+        int indent = calcIndentsOfLine(b,&startOfNws,&onlyWs,&rmWs);
+        if( startOfNws != 0 )
+        {
+            cur.setPosition( b.position() );
+            cur.setPosition( b.position() + startOfNws, QTextCursor::KeepAnchor );
+            if( onlyWs )
+                cur.deleteChar();
+            else
+            {
+                if( !rmWs )
+                    indent = indent == 0 && startOfNws != 0 ? 1 : indent;
+                cur.insertText( QString( indent, QChar('\t') ) );
+            }
+        }
+        b = b.next();
+    }while( b.isValid() && b.position() < selEnd );
 }
 
 void EbnfEditor::updateExtraSelections()
@@ -1117,8 +1162,8 @@ void EbnfEditor::installDefaultPopup()
 	pop->addCommand( "Select all", this, SLOT(handleEditSelectAll()), tr("CTRL+A"), true  );
 	//pop->addCommand( "Select Matching Brace", this, SLOT(handleSelectBrace()) );
 	pop->addSeparator();
-	pop->addCommand( "Find...", this, SLOT(handleFind()), tr("CTRL+F"), true );
-	pop->addCommand( "Find again", this, SLOT(handleFindAgain()), tr("F3"), true );
+    pop->addCommand( "Find...", this, SLOT(handleFind()), tr("CTRL+F") );
+    pop->addCommand( "Find again", this, SLOT(handleFindAgain()), tr("F3") );
     pop->addCommand( "Replace...", this, SLOT(handleReplace()), tr("CTRL+R"), true );
     pop->addSeparator();
     pop->addCommand( "&Goto...", this, SLOT(handleGoto()), tr("CTRL+G"), true );

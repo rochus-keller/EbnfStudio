@@ -20,6 +20,7 @@
 #include "MainWindow.h"
 #include "EbnfEditor.h"
 #include "EbnfErrors.h"
+#include "EbnfParser.h"
 #include "HtmlSyntax.h"
 #include "EbnfAnalyzer.h"
 #include "SyntaxTreeMdl.h"
@@ -80,7 +81,6 @@ MainWindow::MainWindow(QWidget *parent)
     const QVariant state = s.value( "DockState" );
     if( !state.isNull() )
         restoreState( state.toByteArray() );
-
 }
 
 MainWindow::~MainWindow()
@@ -176,6 +176,13 @@ void MainWindow::onErrorsDblClicked()
     }
 }
 
+static bool UsedByLessThan( const EbnfSyntax::Node* lhs, const EbnfSyntax::Node* rhs )
+{
+    return lhs->d_tok.d_lineNr < rhs->d_tok.d_lineNr ||
+            (!(rhs->d_tok.d_lineNr < lhs->d_tok.d_lineNr) &&
+             lhs->d_tok.d_colNr < rhs->d_tok.d_colNr );
+}
+
 void MainWindow::onCursorChanged()
 {
     int line, col;
@@ -207,19 +214,25 @@ void MainWindow::onCursorChanged()
         {
 #if 1
             EbnfSyntax::ConstNodeList backrefs = d_edit->getSyntax()->getBackRefs(sym);
+            std::sort( backrefs.begin(), backrefs.end(), UsedByLessThan );
+            EbnfEditor::SymList syms;
             foreach( const EbnfSyntax::NodeRef& r, backrefs )
             {
                 const EbnfSyntax::Node* n = r.d_node;
+                syms << n;
                 QTreeWidgetItem* i = new QTreeWidgetItem(d_usedBy);
                 i->setText( 0, QString("%1 (%2:%3)").arg(n->d_owner->d_tok.d_val.toStr())
                             .arg(n->d_tok.d_lineNr).arg(n->d_tok.d_colNr));
                 i->setToolTip( 0, i->text(0) );
                 i->setData( 0, Qt::UserRole, QPoint( n->d_tok.d_colNr, n->d_tok.d_lineNr ) );
+                if( n->d_owner->doIgnore() )
+                    i->setBackgroundColor(0,Qt::lightGray);
             }
-            d_usedBy->sortItems(0,Qt::AscendingOrder);
             if( sym->d_tok.d_type == EbnfToken::Production || sym->d_tok.d_type == EbnfToken::NonTerm )
             {
-                d_edit->markNonTerms( backrefs );
+                if( !backrefs.isEmpty() )
+                    syms << backrefs.first()->d_def;
+                d_edit->markNonTerms( syms );
             }else
                 d_edit->clearNonTerms();
 
@@ -315,6 +328,61 @@ void MainWindow::onTransformHtml()
     HtmlSyntax s;
     s.transform( path, info.absoluteDir().absoluteFilePath( info.completeBaseName() + ".ebnf" ) );
 
+}
+
+void MainWindow::onTransformIeeeEbnf()
+{
+    ENABLED_IF(true);
+
+    const QString title = tr("Transform IEEE EBNF Syntax");
+    const QString inPath = QFileDialog::getOpenFileName( this, title, QString(), "*.txt" );
+    if( inPath.isEmpty() )
+        return;
+
+    QFileInfo info(inPath);
+    const QString outPath = info.absoluteDir().absoluteFilePath( info.completeBaseName() + ".ebnf" );
+
+    QFile in(inPath);
+    QFile out(outPath);
+    if( !in.open(QIODevice::ReadOnly) || !out.open(QIODevice::WriteOnly) )
+    {
+        QMessageBox::critical(this,title,tr("Cannot open either input or output file") );
+        return;
+    }
+
+    while( !in.atEnd() )
+    {
+        const QByteArray line = in.readLine();
+        const EbnfParser::IeeeLineKind k = EbnfParser::guessKindOfIeeeLine(line);
+        switch( k )
+        {
+        case EbnfParser::ContinueProduction:
+        case EbnfParser::StartProduction:
+            if( k == EbnfParser::StartProduction )
+                out.write("\n");
+            else
+                out.write("\t");
+            foreach( const QByteArray& str, EbnfParser::tokenizeIeeeLine(line) )
+            {
+                out.write(str);
+                out.write(" ");
+            }
+            out.write("\n");
+            break;
+        case EbnfParser::EmptyLine:
+            // ignore;
+            break;
+        case EbnfParser::CommentLine:
+            out.write(line);
+            out.write("\n");
+            break;
+        default:
+            out.write("\n");
+            out.write("// ");
+            out.write(line);
+            break;
+        }
+    }
 }
 
 void MainWindow::onSyntaxUpdated()
@@ -600,6 +668,7 @@ void MainWindow::createMenus()
 
     Gui2::AutoMenu* tools = new Gui2::AutoMenu( tr("Tools"), this, true );
     tools->addCommand( "Transform HTML Syntax...", this, SLOT(onTransformHtml()) );
+    tools->addCommand( "Transform IEEE EBNF Text...", this, SLOT(onTransformIeeeEbnf()) );
 
     Gui2::AutoMenu* window = new Gui2::AutoMenu( tr("Window"), this, true );
     window->addCommand( "Set &Font...", d_edit, SLOT(handleSetFont()) );
@@ -716,7 +785,6 @@ void MainWindow::createUsedBy()
     d_usedBy = new QTreeWidget(dock);
     d_usedBy->setAlternatingRowColors(true);
     d_usedBy->setHeaderHidden(true);
-    d_usedBy->setSortingEnabled(true);
     d_usedBy->setAllColumnsShowFocus(true);
     d_usedBy->setRootIsDecorated(false);
     dock->setWidget(d_usedBy);

@@ -204,7 +204,7 @@ void SyntaxTreeMdl::fillTop()
     typedef QMap<QByteArray,EbnfSyntax::Definition*> Sorter;
     Sorter sorter;
     for( EbnfSyntax::Definitions::const_iterator i = d_syn->getDefs().begin(); i != d_syn->getDefs().end(); ++i )
-        sorter.insert( i.key(), i.value() );
+        sorter.insert( i.key().toBa().toLower(), i.value() );
 
     for( Sorter::const_iterator j = sorter.begin(); j != sorter.end(); ++j )
     {
