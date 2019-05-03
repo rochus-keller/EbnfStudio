@@ -74,7 +74,10 @@ bool SynTreeGen::generateTree(const QString& ebnfPath, EbnfSyntax* syn, bool inc
         hout << "\t\t\t" << "R_First = TT_Max + 1," << endl;
         for( i = sort.begin(); i != sort.end(); ++i )
         {
-            hout << "\t\t\t" << "R_" << i.key() << "," << endl;
+            hout << "\t\t\t" << "R_" << i.key();
+            if( i.value()->d_tok.d_op == EbnfToken::Skip )
+                hout << "_";
+            hout << "," << endl;
         }
         hout << "\t\t\t" << "R_Last" << endl;
         hout << "\t\t" << "};" << endl;
@@ -119,8 +122,10 @@ bool SynTreeGen::generateTree(const QString& ebnfPath, EbnfSyntax* syn, bool inc
         bout << "\t" << "switch(r) {" << endl;
         for( i = sort.begin(); i != sort.end(); ++i )
         {
-            bout << "\t\tcase R_" << i.key()
-                << ": return \"" << i.value()->d_tok.d_val.toStr() << "\";" << endl;
+            bout << "\t\tcase R_" << i.key();
+            if( i.value()->d_tok.d_op == EbnfToken::Skip )
+                bout << "_";
+            bout << ": return \"" << i.value()->d_tok.d_val.toStr() << "\";" << endl;
         }
         bout << "\tdefault: if(r<R_First) return tokenTypeName(r); else return \"\";" << endl;
         bout << "}" << endl;

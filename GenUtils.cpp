@@ -18,7 +18,7 @@
 */
 
 #include "GenUtils.h"
-
+#include <QtDebug>
 #include <QHash>
 
 GenUtils::GenUtils()
@@ -75,7 +75,7 @@ QByteArray GenUtils::symToString(const QByteArray& str)
     while( i < str.size() )
     {
         int n = 1;
-        while( i + n < str.size() && str[i] == str[n] )
+        while( i + n < str.size() && str[i] == str[i+n] )
             n++;
         if( n > 1 )
             res += QByteArray::number(n);

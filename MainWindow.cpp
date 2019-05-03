@@ -227,6 +227,12 @@ void MainWindow::onCursorChanged()
                 i->setData( 0, Qt::UserRole, QPoint( n->d_tok.d_colNr, n->d_tok.d_lineNr ) );
                 if( n->d_owner->doIgnore() )
                     i->setBackgroundColor(0,Qt::lightGray);
+                else if( n->d_owner->d_tok.d_op == EbnfToken::Transparent )
+                {
+                    QFont f = i->font(0);
+                    f.setItalic(true);
+                    i->setFont( 0, f );
+                }
             }
             if( sym->d_tok.d_type == EbnfToken::Production || sym->d_tok.d_type == EbnfToken::NonTerm )
             {

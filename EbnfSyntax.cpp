@@ -312,6 +312,15 @@ void EbnfSyntax::checkReachability()
             }
         }
     }while( changed );
+    foreach( Definition* d, d_order )
+    {
+        if( d->doIgnore() )
+            continue;
+        if( d_errs != 0 && d->d_node != 0 && !d->d_node->isAnyReachable() )
+            d_errs->warning( EbnfErrors::Semantics, d->d_tok.d_lineNr, d->d_tok.d_colNr,
+                             QObject::tr("production has not reachable content '%1'").arg(d->d_tok.d_val.c_str() ));
+    }
+
 }
 
 static inline bool isHit( const EbnfSyntax::Symbol* sym, quint32 line, quint16 col )
@@ -733,6 +742,36 @@ bool EbnfSyntax::Node::isRepeatable() const
             return n->isRepeatable();
         else
             return false;
+    default:
+        break;
+    }
+    return false;
+}
+
+bool EbnfSyntax::Node::isAnyReachable() const
+{
+    if( doIgnore() )
+        return false;
+    switch( d_type )
+    {
+    case Nonterminal:
+        return !d_def->doIgnore();
+    case Terminal:
+        return true;
+    case Sequence:
+        foreach( Node* n, d_subs )
+        {
+            if( n->isAnyReachable() )
+                return true;
+        }
+        break;
+    case Alternative:
+        foreach( Node* n, d_subs )
+        {
+            if( !n->isAnyReachable() )
+                return false;
+        }
+        return true;
     default:
         break;
     }

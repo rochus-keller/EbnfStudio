@@ -45,6 +45,7 @@ public:
         virtual bool doIgnore() const { return false; }
         virtual bool isNullable() const { return false; }
         virtual bool isRepeatable() const { return false; }
+        virtual bool isAnyReachable() const { return true; }
     };
 
     struct Definition : public Symbol
@@ -91,6 +92,7 @@ public:
         bool doIgnore() const;
         bool isNullable() const;
         bool isRepeatable() const;
+        bool isAnyReachable() const;
         const Node* getNext(int* index = 0) const;
         int getLlk() const; // 0..invalid
         void dump(int level = 0) const;
