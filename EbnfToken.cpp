@@ -32,6 +32,8 @@ QByteArray EbnfToken::toString(bool labeled) const
             return d_val;
     case Assig:
         return "::=";
+    case AddTo:
+        return "+=";
     case NonTerm:
         if( labeled )
             return "nonterminal " + d_val.toBa();
@@ -70,6 +72,18 @@ QByteArray EbnfToken::toString(bool labeled) const
             return d_val;
     case Eof:
         return "<eof>";
+    case PpDefine:
+        return "#define";
+    case PpUndef:
+        return "#undef";
+    case PpIfdef:
+        return "#ifdef";
+    case PpIfndef:
+        return "#ifndef";
+    case PpElse:
+        return "#else";
+    case PpEndif:
+        return "#endif";
     }
     return QByteArray();
 }
@@ -127,4 +141,20 @@ EbnfToken::Sym EbnfToken::getSym(const QByteArray& str)
 void EbnfToken::resetSymTbl()
 {
 
+}
+
+bool EbnfToken::isPpType(EbnfToken::TokenType tt)
+{
+    switch(tt)
+    {
+    case PpDefine:
+    case PpUndef:
+    case PpIfdef:
+    case PpIfndef:
+    case PpElse:
+    case PpEndif:
+        return true;
+    default:
+        return false;
+    }
 }

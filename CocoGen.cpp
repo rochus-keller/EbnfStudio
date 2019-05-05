@@ -45,7 +45,7 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
     QByteArray module = syn->getPragmaFirst("%module");
     if( !module.isEmpty() )
         module = module + "/";
-    const QByteArrayList suppress = syn->getPragma("%suppress");
+    const EbnfSyntax::SymList suppress = syn->getPragma("%suppress");
 
     d_tbl = tbl;
 

@@ -50,6 +50,11 @@ EbnfHighlighter::EbnfHighlighter(QTextDocument* doc):QSyntaxHighlighter(doc)
 
     d_format[C_Pragma].setForeground( Qt::darkGray );
     d_format[C_Pragma].setFontWeight(QFont::Bold);
+
+    const QColor brown( 147, 39, 39 );
+    d_format[C_Pp].setForeground( brown );
+    d_format[C_Pp].setFontWeight(QFont::Bold);
+
 }
 
 void EbnfHighlighter::highlightBlock(const QString& text)
@@ -60,6 +65,19 @@ void EbnfHighlighter::highlightBlock(const QString& text)
 
     foreach( const EbnfToken& t, toks )
     {
+        if( EbnfToken::isPpType(t.d_type) )
+        {
+            const int cmtPos = text.indexOf(QLatin1String("//"));
+            if( cmtPos == -1 )
+                setFormat( 0, text.size(), d_format[C_Pp] );
+            else
+            {
+                setFormat( 0, cmtPos, d_format[C_Pp] );
+                setFormat( cmtPos, text.size() - cmtPos, d_format[C_Cmt] );
+            }
+            continue;
+        }
+
         QTextCharFormat f;
         switch( t.d_type )
         {
@@ -94,6 +112,7 @@ void EbnfHighlighter::highlightBlock(const QString& text)
         case EbnfToken::RBrack:
         case EbnfToken::LBrace:
         case EbnfToken::RBrace:
+        case EbnfToken::AddTo:
             f = d_format[C_Ebnf];
             break;
         default:

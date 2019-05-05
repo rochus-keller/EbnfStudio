@@ -39,27 +39,41 @@ bool EbnfParser::parse(EbnfLexer* lex)
     EbnfToken t = nextToken();
     while( t.isValid() )
     {
-        switch( t.d_type )
+        if( t.d_type == EbnfToken::Production )
         {
-        case EbnfToken::Production:
-            if( nextToken().d_type != EbnfToken::Assig )
-                return error( t, tr("expecing ::= for production") );
-            d_def = new EbnfSyntax::Definition(t);
-            if( !d_syn->addDef( d_def ) )
+            EbnfToken op = nextToken();
+            if( op.d_type == EbnfToken::Assig )
             {
-                delete d_def;
-                return false;
-            }
-            nextToken();
-            if( d_cur.d_type != EbnfToken::Production && d_cur.d_type != EbnfToken::Eof )
-                d_def->d_node = parseExpression();
-            // else empty production
-            break;
-        default:
+                d_def = new EbnfSyntax::Definition(t);
+                if( !d_syn->addDef( d_def ) )
+                {
+                    delete d_def;
+                    return false;
+                }
+                t = nextToken();
+                if( t.d_type != EbnfToken::Production && t.d_type != EbnfToken::Eof )
+                    d_def->d_node = parseExpression();
+            }else if( op.d_type == EbnfToken::AddTo )
+            {
+                if( !t.d_val.toBa().startsWith('%') )
+                    return error( op, tr("only pragmas support '+='") );
+                d_def = 0;
+                nextToken();
+                if( d_cur.d_type != EbnfToken::Production && d_cur.d_type != EbnfToken::Eof )
+                {
+                    d_syn->addPragma( t, parseExpression() );
+                    if( t.d_val.toBa() == "%keywords" )
+                        d_lex->addKeywords( d_syn->getPragma( t.d_val ).toSet() );
+                }
+            }else
+               return error( t, tr("expecing '::=' or '+='") );
+        }else
             return error( t );
-        }
         t = d_cur;
     }
+
+    d_syn->setDefines( d_defines );
+
     if( t.isErr() )
         error( t );
 
@@ -166,9 +180,15 @@ EbnfToken EbnfParser::nextToken()
 {
     Q_ASSERT( d_lex != 0 );
     EbnfToken t = d_lex->nextToken();
-    while( t.d_type == EbnfToken::Comment )
-        t = d_lex->nextToken();
     d_cur = t;
+    while( t.isValid() &&
+           ( t.d_type == EbnfToken::Comment || EbnfToken::isPpType(t.d_type) || !txOn() ) )
+    {
+        if( EbnfToken::isPpType(t.d_type) )
+            handlePpSym(t);
+        t = d_lex->nextToken();
+        d_cur = t;
+    }
     return t;
 }
 
@@ -419,5 +439,73 @@ bool EbnfParser::checkCardinality(EbnfSyntax::Node* node)
         return false;
     }
     return true;
+}
+
+void EbnfParser::handlePpSym(const EbnfToken& t)
+{
+    switch( t.d_type )
+    {
+    case EbnfToken::PpDefine:
+        d_defines.insert(t.d_val);
+        break;
+    case EbnfToken::PpUndef:
+        d_defines.remove(t.d_val);
+        break;
+    case EbnfToken::PpIfdef:
+        {
+            const bool lastTx = txOn();
+            const bool curTx = lastTx && d_defines.contains(t.d_val);
+            d_ifState.push( qMakePair(quint8(curTx ? IfActive : InIf),curTx) );
+            txlog(t.d_lineNr + 1, lastTx );
+        }
+        break;
+    case EbnfToken::PpIfndef:
+        {
+            const bool lastTx = txOn();
+            const bool curTx = ( lastTx ) && !d_defines.contains(t.d_val);
+            d_ifState.push( qMakePair(quint8(curTx ? IfActive : InIf),curTx) );
+            txlog(t.d_lineNr + 1, lastTx );
+        }
+        break;
+    case EbnfToken::PpElse:
+        if( d_ifState.isEmpty() || ( d_ifState.top().first != InIf && d_ifState.top().first != IfActive ) )
+            error( t, "#else not expected");
+        else
+        {
+            const bool lastTx = txOn();
+            const bool curTx = ( d_ifState.size() == 1 || d_ifState[d_ifState.size()-2].second ) &&
+                    d_ifState.top().first != IfActive;
+            d_ifState.top().first = InElse;
+            d_ifState.top().second = curTx;
+            txlog( d_cur.d_lineNr + ( curTx ? -1 : 1 ), lastTx );
+        }
+        break;
+    case EbnfToken::PpEndif:
+        if( d_ifState.isEmpty() )
+            error(t,"#endif not expected");
+        else
+        {
+            const bool lastTx = txOn();
+            d_ifState.pop();
+            txlog( d_cur.d_lineNr - 1, lastTx );
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+bool EbnfParser::txOn() const
+{
+    return d_ifState.isEmpty() || d_ifState.top().second;
+}
+
+void EbnfParser::txlog(quint32 line, bool lastOn )
+{
+    const bool on = txOn();
+    if( lastOn != on )
+    {
+        d_syn->addIdol(line);
+    }
 }
 

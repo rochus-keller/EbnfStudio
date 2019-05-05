@@ -21,6 +21,7 @@
 */
 
 #include <QObject>
+#include <QStack>
 #include <QStringList>
 #include "EbnfToken.h"
 #include "EbnfSyntax.h"
@@ -42,6 +43,7 @@ public:
     enum IeeeLineKind { StartProduction, ContinueProduction, EmptyLine, CommentLine, TextLine };
     static IeeeLineKind guessKindOfIeeeLine( const QByteArray& line );
     static QByteArrayList tokenizeIeeeLine(const QByteArray& line );
+
 protected:
     EbnfToken nextToken();
     bool error( const EbnfToken& t, const QString& msg = QString() );
@@ -49,6 +51,9 @@ protected:
     EbnfSyntax::Node* parseExpression();
     EbnfSyntax::Node* parseTerm();
     bool checkCardinality(EbnfSyntax::Node*);
+    void handlePpSym(const EbnfToken&);
+    bool txOn() const;
+    void txlog(quint32 line, bool lastOn);
 
 private:
     EbnfLexer* d_lex;
@@ -56,6 +61,9 @@ private:
     EbnfSyntax::Definition* d_def;
     EbnfToken d_cur;
     EbnfErrors* d_errs;
+    EbnfSyntax::Defines d_defines;
+    enum IfState { InIf, IfActive, InElse };
+    QStack< QPair<quint8,bool> > d_ifState; // ifState, txOn
 };
 
 #endif // EBNFPARSER_H

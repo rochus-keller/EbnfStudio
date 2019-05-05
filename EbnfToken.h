@@ -46,7 +46,9 @@ struct EbnfToken
     };
 
     enum TokenType { Invalid, Production, Assig, NonTerm, Keyword, Literal,
-                     Bar, LPar, RPar, LBrack, RBrack, LBrace, RBrace, Predicate, Comment, Eof };
+                     Bar, LPar, RPar, LBrack, RBrack, LBrace, RBrace, Predicate, Comment,
+                     AddTo, // +=
+                     PpDefine, PpUndef, PpIfdef, PpIfndef, PpElse, PpEndif, Eof };
     enum Handling { Normal,
                     Transparent, // *
                     Keep,        // !
@@ -57,11 +59,11 @@ struct EbnfToken
     TokenType d_type;
     Handling d_op;
 #else
-    uint d_type : 4;
+    uint d_type : 5;
     uint d_op : 2;
 #endif
     uint d_len : 10;
-    uint d_colNr : 16;
+    uint d_colNr : 15;
     quint32 d_lineNr;
     Sym d_val;
     EbnfToken(TokenType t = Invalid, quint32 line = 0,quint16 col = 0, quint16 len = 0, const QByteArray& val = QByteArray() ):
@@ -73,6 +75,8 @@ struct EbnfToken
 
     static Sym getSym( const QByteArray& );
     static void resetSymTbl();
+
+    static bool isPpType( TokenType );
 
 private:
     static QHash<QByteArray,Sym> s_symTbl;

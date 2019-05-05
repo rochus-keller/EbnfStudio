@@ -193,7 +193,7 @@ private:
 EbnfEditor::EbnfEditor(QWidget *parent) :
 	QPlainTextEdit(parent), d_showNumbers(true),
     d_undoAvail(false),d_redoAvail(false),d_copyAvail(false),d_curPos(-1),
-    d_pushBackLock(false)
+    d_pushBackLock(false), d_rehighlightLock(false)
 {
 	setFont( defaultFont() );
     setLineWrapMode( QPlainTextEdit::NoWrap );
@@ -432,6 +432,8 @@ void EbnfEditor::onUpdateCursor()
 
 void EbnfEditor::onTextChanged()
 {
+    if( d_rehighlightLock )
+        return;
     d_typingLatency.start(s_typingLatencyMs);
 }
 
@@ -604,7 +606,7 @@ void EbnfEditor::parseText(QByteArray ba)
     QBuffer buf(&ba);
     buf.open(QIODevice::ReadOnly );
     EbnfLexer l;
-    l.setKeywords( d_hl->getKeywords() );
+    l.setKeywords( d_origKeyWords );
     EbnfParser p;
     p.setErrors(d_errs);
     d_errs->clear();
@@ -625,6 +627,13 @@ void EbnfEditor::parseText(QByteArray ba)
         {
             //qDebug() << "parsing" << d_path << "not successful," << d_errs->getErrCount() << "errors";
             // qDebug() << p.getSyntax()->getErrors();
+        }
+        if( l.getKeywords().size() != d_hl->getKeywords().size() )
+        {
+            d_hl->setKeywords( l.getKeywords() );
+            d_rehighlightLock = true;
+            d_hl->rehighlight(); // triggert onTextChanged
+            d_rehighlightLock = false;
         }
     }
     emit sigSyntaxUpdated();
@@ -667,6 +676,30 @@ void EbnfEditor::fixIndent()
 void EbnfEditor::updateExtraSelections()
 {
     ESL sum;
+
+    if( d_syn != 0 && !d_syn->getIdol().isEmpty() )
+    {
+        bool on = true;
+        quint32 startLine = 1;
+        for( int i = 0; i < d_syn->getIdol().size(); i++ )
+        {
+            on = !on;
+            if( !on )
+                startLine = d_syn->getIdol()[i];
+            else
+            {
+                QTextEdit::ExtraSelection line;
+                line.format.setBackground(QColor(Qt::lightGray).lighter(120));
+                line.format.setProperty(QTextFormat::FullWidthSelection, true);
+                for( int l = startLine; l <= d_syn->getIdol()[i]; l++ )
+                {
+                    QTextCursor c( document()->findBlockByNumber(l - 1) );
+                    line.cursor = c;
+                    sum << line;
+                }
+            }
+        }
+    }
 
     QTextEdit::ExtraSelection line;
     line.format.setBackground(QColor(Qt::yellow).lighter(190));
@@ -1120,7 +1153,8 @@ bool EbnfEditor::loadKeywords(const QString& path)
     EbnfLexer l;
     QFileInfo info(path);
     l.readKeywordsFromFile( info.absoluteDir().absoluteFilePath( info.completeBaseName() + ".keywords" ) );
-    d_hl->setKeywords( l.getKeywords() );
+    d_origKeyWords = l.getKeywords();
+    d_hl->setKeywords( d_origKeyWords );
     return true;
 }
 

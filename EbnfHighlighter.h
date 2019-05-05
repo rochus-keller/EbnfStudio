@@ -35,7 +35,7 @@ protected:
     // Override
     void highlightBlock( const QString & text );
 private:
-    enum Category { C_Ebnf, C_Cmt, C_Kw, C_Lit, C_Prod, C_Nt, C_Pred, C_Gray, C_Pragma, C_Max };
+    enum Category { C_Ebnf, C_Cmt, C_Kw, C_Lit, C_Prod, C_Nt, C_Pred, C_Gray, C_Pragma, C_Pp, C_Max };
     QTextCharFormat d_format[C_Max];
     Keywords d_kw;
 };

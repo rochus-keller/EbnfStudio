@@ -158,11 +158,14 @@ private:
     int d_linkLineNr;
     QList<Location> d_backHisto; // d_backHisto.last() ist aktuell angezeigtes Objekt
     QList<Location> d_forwardHisto;
+    typedef QSet<EbnfToken::Sym> Keywords;
+    Keywords d_origKeyWords;
     bool d_pushBackLock;
     bool d_undoAvail;
     bool d_redoAvail;
     bool d_copyAvail;
     bool d_showNumbers;
+    bool d_rehighlightLock;
 };
 
 #endif // EBNFEDITOR_H

@@ -283,6 +283,14 @@ bool SynTreeGen::generateTt(const QString& ebnfPath, EbnfSyntax* syn, bool inclu
 
     hout << "#include <QByteArray>" << endl << endl;
 
+    foreach( const EbnfToken::Sym& define, syn->getDefines() )
+    {
+        hout << "#define " << nameSpace.toUpper() << ( !nameSpace.isEmpty() ? "_" : "" )
+             << define.toBa().toUpper() << endl;
+    }
+    if( !syn->getDefines().isEmpty() )
+        hout << endl;
+
     if( !nameSpace.isEmpty() )
         hout << "namespace " << nameSpace << " {" << endl;
 

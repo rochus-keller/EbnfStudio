@@ -36,6 +36,8 @@ public:
     typedef QList<Node*> NodeList;
     typedef QList<const Node*> ConstNodeList;
     typedef QSet<const EbnfSyntax::Node*> NodeSet;
+    typedef QList<qint32> IfDefOutList; // Jeder Eintrag ist die Zeile der Änderung. Start bei On.
+    typedef QSet<EbnfToken::Sym> Defines;
 
     struct Symbol
     {
@@ -127,14 +129,20 @@ public:
 
     typedef QHash<EbnfToken::Sym,Definition*> Definitions;
     typedef QList<Definition*> OrderedDefs;
+    typedef QList<EbnfToken::Sym> SymList;
 
     bool addDef( Definition* ); // transfer ownership
+    bool addPragma(const EbnfToken& name, Node* ); // transfer ownership
     const Definitions& getDefs() const { return d_defs; }
     const Definition* getDef(const EbnfToken::Sym& name ) const;
     const OrderedDefs& getOrderedDefs() const { return d_order; }
     const Definitions& getPragmas() const { return d_pragmas; }
-    QByteArrayList getPragma(const QByteArray& name ) const;
-    QByteArray getPragmaFirst(const QByteArray& name ) const;
+    SymList getPragma(const QByteArray& name ) const;
+    EbnfToken::Sym getPragmaFirst(const QByteArray& name ) const;
+    void addIdol(qint32);
+    const IfDefOutList& getIdol() const { return d_idol; }
+    void setDefines( const Defines& d ) { d_defines = d; }
+    const Defines& getDefines() const { return d_defines; }
 
     bool finishSyntax();
 
@@ -159,14 +167,17 @@ protected:
     void markLeftRecursion( Definition*,Node* node, NodeList& );
     void checkPragmas();
     NodeRefSet calcStartsWithNtSet( Node* node );
+
 private:
     Q_DISABLE_COPY(EbnfSyntax)
     EbnfErrors* d_errs;
     Definitions d_defs;
     OrderedDefs d_order;
     Definitions d_pragmas;
+    Defines d_defines;
     typedef QHash<EbnfToken::Sym,ConstNodeList> BackRefs;
     BackRefs d_backRefs;
+    IfDefOutList d_idol;
     bool d_finished;
 };
 

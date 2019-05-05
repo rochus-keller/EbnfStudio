@@ -108,6 +108,7 @@ void EbnfSyntax::clear()
         delete d;
     d_pragmas.clear();
     d_finished = false;
+    d_idol.clear();
 }
 
 static bool isTerminalOrSeqOfTerminals( const EbnfSyntax::Node* n )
@@ -158,35 +159,87 @@ bool EbnfSyntax::addDef(EbnfSyntax::Definition* d)
     }
 }
 
+bool EbnfSyntax::addPragma(const EbnfToken& name, EbnfSyntax::Node* ex)
+{
+    if( ex == 0 )
+        return false;
+    if( !name.d_val.toBa().startsWith('%') )
+    {
+        if( d_errs )
+            d_errs->warning( EbnfErrors::Semantics, name.d_lineNr, name.d_colNr,
+                           QObject::tr("invalid pragma '%1'").arg(name.d_val.toStr()) );
+        delete ex;
+        return false;
+    }
+    Definition*& def = d_pragmas[ name.d_val ];
+    if( def == 0 )
+        def = new Definition(name);
+
+    if( def->d_node == 0 )
+    {
+        def->d_node = ex;
+        return true;
+    }
+    if( def->d_node->d_type != Node::Sequence )
+    {
+        EbnfSyntax::Node* n = def->d_node;
+        def->d_node = new Node( Node::Sequence, def );
+        def->d_node->d_subs.append(n);
+        n->d_parent = def->d_node;
+    }
+    if( ex->d_type == EbnfSyntax::Node::Sequence )
+    {
+        def->d_node->d_subs += ex->d_subs;
+        foreach( Node* n, ex->d_subs )
+        {
+            n->d_parent = def->d_node;
+            n->d_owner = def;
+        }
+        ex->d_subs.clear();
+        delete ex;
+    }else
+    {
+        def->d_node->d_subs.append(ex);
+        ex->d_parent = def->d_node;
+        ex->d_owner = def;
+    }
+    return true;
+}
+
 const EbnfSyntax::Definition*EbnfSyntax::getDef(const EbnfToken::Sym& name) const
 {
     return d_defs.value(name);
 }
 
-QByteArrayList EbnfSyntax::getPragma(const QByteArray& name) const
+EbnfSyntax::SymList EbnfSyntax::getPragma(const QByteArray& name) const
 {
     const Definition* d = d_pragmas.value( EbnfToken::getSym(name) );
-    QByteArrayList res;
+    SymList res;
     if( d && d->d_node )
     {
         if( d->d_node->d_type == Node::Terminal )
-            res << d->d_node->d_tok.d_val.toBa();
+            res << d->d_node->d_tok.d_val;
         else
         {
             foreach( const Node* sub, d->d_node->d_subs )
-                res << sub->d_tok.d_val.toBa();
+                res << sub->d_tok.d_val;
         }
     }
     return res;
 }
 
-QByteArray EbnfSyntax::getPragmaFirst(const QByteArray& name) const
+EbnfToken::Sym EbnfSyntax::getPragmaFirst(const QByteArray& name) const
 {
-    QByteArrayList str = getPragma(name);
+    SymList str = getPragma(name);
     if( !str.isEmpty() )
         return str.first();
     else
-        return QByteArray();
+        return EbnfToken::Sym();
+}
+
+void EbnfSyntax::addIdol(qint32 line)
+{
+    d_idol.append(line);
 }
 
 bool EbnfSyntax::finishSyntax()

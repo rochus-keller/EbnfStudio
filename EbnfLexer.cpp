@@ -60,14 +60,18 @@ EbnfToken EbnfLexer::nextTokenImp()
         if( ch == '/' && lookAhead(1) == '/' )
             return token(EbnfToken::Comment, d_line.size() - d_colNr, d_line.mid( d_colNr + 2 ).trimmed() );
 
-        if( ::isalnum(ch) || ch == '$' || ch == '%' )
+        if( d_colNr == 0 && ch == '#' )
+        {
+            return ppsym();
+        }else if( ::isalnum(ch) || ch == '$' || ch == '%' )
         {
             // Identifier oder Reserved Word
             EbnfToken t = ident();
             if( potentialProduction )
             {
                 skipWhiteSpace();
-                if( lookAhead(0) == ':' && lookAhead(1) == ':' && lookAhead(2) == '=' )
+                if( ( lookAhead(0) == ':' && lookAhead(1) == ':' && lookAhead(2) == '=' ) |
+                        ( lookAhead(0) == '+' && lookAhead(1) == '=' ) )
                 {
                     t.d_type = EbnfToken::Production;
                     return t;
@@ -81,15 +85,15 @@ EbnfToken EbnfLexer::nextTokenImp()
         }else if( ch == '\'' )
         {
             EbnfToken t = literal();
-            if( potentialProduction )
-            {
-                skipWhiteSpace();
-                if( lookAhead(0) == ':' && lookAhead(1) == ':' && lookAhead(2) == '=' )
-                {
-                    t.d_type = EbnfToken::Production;
-                    return t;
-                }
-            }else
+//            if( potentialProduction ) // what is 'literal' ::= good for?
+//            {
+//                skipWhiteSpace();
+//                if( lookAhead(0) == ':' && lookAhead(1) == ':' && lookAhead(2) == '=' )
+//                {
+//                    t.d_type = EbnfToken::Production;
+//                    return t;
+//                }
+//            }else
                 return t;
         }
 
@@ -116,6 +120,10 @@ EbnfToken EbnfLexer::nextTokenImp()
             return token( EbnfToken::RBrace );
         case '|':
             return token( EbnfToken::Bar );
+        case '+':
+            if( lookAhead(1) == '=' )
+                return token( EbnfToken::AddTo, 2 );
+            break;
         }
         if( ch == '\\' )
         {
@@ -282,6 +290,37 @@ EbnfToken EbnfLexer::literal()
     EbnfToken t = token( EbnfToken::Literal, off+1, str );
     t.d_op = readOp();
     return t;
+}
+
+EbnfToken EbnfLexer::ppsym()
+{
+    int off = 1; // off == 0 wurde bereits dem ident zugeordnet
+    while( true )
+    {
+        if( (d_colNr+off) >= d_line.size() || !::isalnum(d_line[d_colNr+off]) )
+            break;
+        else
+            off++;
+    }
+    const QByteArray keyword = d_line.mid(d_colNr, off );
+    EbnfToken::TokenType tt = EbnfToken::Invalid;
+    if( keyword == "#define" )
+        tt = EbnfToken::PpDefine;
+    else if( keyword == "#undef")
+        tt = EbnfToken::PpUndef;
+    else if( keyword == "#ifdef")
+        tt = EbnfToken::PpIfdef;
+    else if( keyword == "#ifndef")
+        tt = EbnfToken::PpIfndef;
+    else if( keyword == "#else")
+        tt = EbnfToken::PpElse;
+    else if( keyword == "#endif")
+        tt = EbnfToken::PpEndif;
+    if( tt == EbnfToken::Invalid )
+        return token( EbnfToken::Invalid, 0, QString("invalid preprocessor symbol '%1'").arg(keyword.data()).toUtf8() );
+    const int cmtPos = d_line.indexOf("//", off);
+    const QByteArray str = ( cmtPos == -1 ? d_line.mid(off) : d_line.mid(off,cmtPos-off) ).trimmed();
+    return token( tt, d_line.size(), str );
 }
 
 EbnfToken::Handling EbnfLexer::readOp()

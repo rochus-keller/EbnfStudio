@@ -35,6 +35,7 @@ public:
     void setStream( QIODevice* );
 
     void setKeywords( const Keywords& kw ) { d_kw = kw; }
+    void addKeywords( const Keywords& kw ) { d_kw += kw; }
     const Keywords& getKeywords() const { return d_kw; }
     bool readKeywordsFromFile( const QString& path );
 
@@ -50,6 +51,7 @@ protected:
     EbnfToken ident();
     EbnfToken attribute();
     EbnfToken literal();
+    EbnfToken ppsym();
     EbnfToken::Handling readOp();
     void nextLine();
 
