@@ -76,7 +76,7 @@ struct EbnfToken
     static Sym getSym( const QByteArray& );
     static void resetSymTbl();
 
-    static bool isPpType( TokenType );
+    static bool isPpType(int );
 
 private:
     static QHash<QByteArray,Sym> s_symTbl;

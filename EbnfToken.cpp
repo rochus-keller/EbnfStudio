@@ -143,7 +143,7 @@ void EbnfToken::resetSymTbl()
 
 }
 
-bool EbnfToken::isPpType(EbnfToken::TokenType tt)
+bool EbnfToken::isPpType(int tt)
 {
     switch(tt)
     {
