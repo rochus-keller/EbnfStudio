@@ -148,7 +148,7 @@ void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& 
             break;
         case EbnfSyntax::Node::Nonterminal:
             if( node->d_def && node->d_def->d_node )
-                calcLlkFirstSet2( k, curBin, level+1, res, node->d_def->d_node, tbl );
+                calcLlkFirstSet2( k, curBin, level + 1, res, node->d_def->d_node, tbl );
             else
             {
                 // wie Terinal
@@ -197,9 +197,9 @@ void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& 
                 int index = curBin;
                 const EbnfSyntax::Node* next = use->getNext(&index);
                 if( next )
-                    calcLlkFirstSet2(k,index,0,res,next,tbl);
-                else
-                    calcLlkFirstSet2(k,index,-1,res,use,tbl);
+                    calcLlkFirstSet2( k, index, 0, res, next, tbl );
+                else if( level > -10 ) // begrenze die Tiefe, da es hier ab und zu unendlich weitergeht TODO
+                    calcLlkFirstSet2( k,index,level - 1 , res, use, tbl );
             }
         }
     }
