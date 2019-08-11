@@ -46,6 +46,7 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
     if( !module.isEmpty() )
         module = module + "/";
     const EbnfSyntax::SymList suppress = syn->getPragma("%suppress");
+    const bool parentPtr = !syn->getPragmaFirst("%parentptr").isEmpty();
 
     d_tbl = tbl;
 
@@ -75,11 +76,13 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
         {
             out << "\t\t" << "if( ";
             for( int i = 0; i < suppress.size(); i++ )
-                out << ( i == 0 ? "" : "&& " ) << "d_cur.d_type != " << nameSpace2 << "Tok_" << GenUtils::symToString(suppress[i]) << " ";
+                out << ( i == 0 ? "" : "&& " ) << "d_cur.d_type != " << nameSpace2 << "Tok_"
+                    << GenUtils::symToString(suppress[i]) << " ";
             out << "){" << endl << "\t";
         }
         out << "\t\t" << nameSpace2 << "SynTree* n = new " <<
-               nameSpace2 << "SynTree( d_cur ); d_stack.top()->d_children.append(n);" << endl;
+               nameSpace2 << "SynTree( d_cur ); d_stack.top()->d_children.append(n);"
+            << ( parentPtr ? " n->d_parent = d_stack.top();" : "" ) << endl;
         if( !suppress.isEmpty() )
             out << "\t\t}" << endl;
         out << "\t}" << endl;
@@ -131,7 +134,8 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
         if( buildAst && !transparent )
             out << "(. " << nameSpace2 << "SynTree* n = new " << nameSpace2 << "SynTree( " <<
                    nameSpace2 << "SynTree::R_" << GenUtils::escapeDollars( d->d_tok.d_val ) <<
-                   ", d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); .) ( ";
+                   ", d_next ); d_stack.top()->d_children.append(n);"
+                << ( parentPtr ? " n->d_parent = d_stack.top();" : "" ) << " d_stack.push(n); .) ( ";
         writeNode( out, d->d_node, true, buildAst );
 
         if( buildAst && !transparent )

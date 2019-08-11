@@ -34,6 +34,7 @@ bool SynTreeGen::generateTree(const QString& ebnfPath, EbnfSyntax* syn, bool inc
     QByteArray module = syn->getPragmaFirst("%module");
     if( !module.isEmpty() )
         module = module + "/";
+    const bool parentPtr = !syn->getPragmaFirst("%parentptr").isEmpty();
 
     QDir dir = QFileInfo(ebnfPath).dir();
 
@@ -84,13 +85,15 @@ bool SynTreeGen::generateTree(const QString& ebnfPath, EbnfSyntax* syn, bool inc
     }
 
     hout << "\t\t" << "SynTree(quint16 r = Tok_Invalid, const Token& = Token() );" << endl;
-    hout << "\t\t" << "SynTree(const Token& t ):d_tok(t){}" << endl;
+    hout << "\t\t" << "SynTree(const Token& t ):d_tok(t)" << ( parentPtr ? ",d_parent(0)": "" ) << "{}" << endl;
     hout << "\t\t" << /* "virtual " << */ "~SynTree() { foreach(SynTree* n, d_children) delete n; }" << endl;
     hout << endl;
     hout << "\t\t" << "static const char* rToStr( quint16 r );" << endl;
     hout << endl;
     hout << "\t\t" << nameSpace2 << "Token d_tok;" << endl;
     hout << "\t\t" << "QList<SynTree*> d_children;" << endl;
+    if( parentPtr )
+        hout << "\t\t" << "SynTree* d_parent;" << endl;
     hout << "\t" << "};" << endl;
     hout << endl;
     if( !nameSpace.isEmpty() )
@@ -108,7 +111,8 @@ bool SynTreeGen::generateTree(const QString& ebnfPath, EbnfSyntax* syn, bool inc
         bout << "using namespace " << nameSpace << ";" << endl;
     bout << endl;
 
-    bout << "SynTree::SynTree(quint16 r, const Token& t ):d_tok(r){" << endl;
+    bout << "SynTree::SynTree(quint16 r, const Token& t ):d_tok(r)" <<
+            ( parentPtr ? ",d_parent(0)": "" ) << "{" << endl;
     bout << "\t" << "d_tok.d_lineNr = t.d_lineNr;" << endl;
     bout << "\t" << "d_tok.d_colNr = t.d_colNr;" << endl;
     bout << "\t" << "d_tok.d_sourcePath = t.d_sourcePath;" << endl;
