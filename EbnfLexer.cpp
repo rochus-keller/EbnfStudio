@@ -248,7 +248,7 @@ EbnfToken EbnfLexer::ident()
     {
         if( (d_colNr+off) >= d_line.size() ||
                 ( !::isalnum(d_line[d_colNr+off]) && d_line[d_colNr+off] != '_' &&
-                  d_line[d_colNr+off] != '$' ) )
+                  d_line[d_colNr+off] != '$' && d_line[d_colNr+off] != '-' ) )
             break;
         else
             off++;

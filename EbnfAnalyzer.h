@@ -47,7 +47,8 @@ protected:
     static void findAmbiguousAlternatives( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors* );
     static void findAmbiguousOptionals( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors* );
     static void reportAmbig(EbnfSyntax::Node* seq, int ambigIdx, const EbnfSyntax::NodeRefSet& diff, const EbnfSyntax::NodeSet& ambigSet2, FirstFollowSet*, EbnfErrors* );
-    static void calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes&, const EbnfSyntax::Node* node, FirstFollowSet* );
+    static void calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNodes&, const EbnfSyntax::Node* node,
+                                    FirstFollowSet*, QSet<const EbnfSyntax::Node*>& visited );
     static bool findPath( EbnfSyntax::ConstNodeList& path, const EbnfSyntax::Node* to );
 };
 

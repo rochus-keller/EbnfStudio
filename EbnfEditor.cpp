@@ -301,6 +301,8 @@ void EbnfEditor::markNonTerms(const SymList& syms)
     format.setBackground( QColor(247,245,243) );
     foreach( const EbnfSyntax::Symbol* s, syms )
     {
+        if( s == 0 )
+            continue;
         QTextCursor c( document()->findBlockByNumber( s->d_tok.d_lineNr - 1) );
         c.setPosition( c.position() + s->d_tok.d_colNr - 1 );
         c.setPosition( c.position() + s->d_tok.d_val.size(), QTextCursor::KeepAnchor );

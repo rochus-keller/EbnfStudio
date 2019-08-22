@@ -130,16 +130,21 @@ void EbnfAnalyzer::calcLlkFirstSet(quint16 k, quint16 curBin, LlkNodes& res, con
     }
 }
 
-void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& res,
-                                    const EbnfSyntax::Node* node, FirstFollowSet* tbl)
+void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNodes& res,
+                                    const EbnfSyntax::Node* node, FirstFollowSet* tbl, QSet<const EbnfSyntax::Node*>& visited)
 {
     if( node == 0 || node->doIgnore() )
         return;
+    if( visited.contains(node) )
+        return;
+    else
+        visited.insert(node);
 
     // TODO: ev. separate Funktion um von einem Node zum nächsten zu wandern und im Falle von usedBy und Alternative
     // mehrere parallele Nodes zurückzugeben. Offen ist die Ermittlung des curBin.
 
     if( level >= 0 )
+    {
         switch( node->d_type )
         {
         case EbnfSyntax::Node::Terminal:
@@ -148,7 +153,7 @@ void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& 
             break;
         case EbnfSyntax::Node::Nonterminal:
             if( node->d_def && node->d_def->d_node )
-                calcLlkFirstSet2( k, curBin, level + 1, res, node->d_def->d_node, tbl );
+                calcLlkFirstSet2Imp( k, curBin, level + 1, res, node->d_def->d_node, tbl, visited );
             else
             {
                 // wie Terinal
@@ -161,7 +166,7 @@ void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& 
             {
                 if( sub->doIgnore() )
                     continue;
-                calcLlkFirstSet2( k, curBin++, level + 1, res, sub, tbl );
+                calcLlkFirstSet2Imp( k, curBin++, level + 1, res, sub, tbl, visited );
                 if( res.size() >= k )
                     break;
             }
@@ -172,13 +177,14 @@ void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& 
             {
                 if( sub->doIgnore() )
                     continue;
-                calcLlkFirstSet2( k, curBin, level + 1, res, sub, tbl );
+                calcLlkFirstSet2Imp( k, curBin, level + 1, res, sub, tbl, visited );
             }
             // TODO: repetition
             break;
         default:
             break;
         }
+    }
     if( level <= 0 && res.size() < k )
     {
         // Vorsicht, es kann sein dass wir beim Weg nach oben wieder dort vorbeikommen, wo man angefangen haben
@@ -186,7 +192,7 @@ void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& 
         if( const EbnfSyntax::Node* next = node->getNext(&curBin) )
         {
             // finde nächsten nach node
-            calcLlkFirstSet2(k,curBin,0,res,next,tbl);
+            calcLlkFirstSet2Imp(k,curBin,0,res,next,tbl, visited);
             if( res.size() >= k )
                 return;
         }else
@@ -197,9 +203,9 @@ void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, int curBin, int level, LlkNodes& 
                 int index = curBin;
                 const EbnfSyntax::Node* next = use->getNext(&index);
                 if( next )
-                    calcLlkFirstSet2( k, index, 0, res, next, tbl );
-                else if( level > -10 ) // begrenze die Tiefe, da es hier ab und zu unendlich weitergeht TODO
-                    calcLlkFirstSet2( k,index,level - 1 , res, use, tbl );
+                    calcLlkFirstSet2Imp( k, index, 0, res, next, tbl, visited );
+                else // obsolet wegen visited: if( level > -10 ) // begrenze die Tiefe, da es hier ab und zu unendlich weitergeht TODO
+                    calcLlkFirstSet2Imp( k,index,level - 1 , res, use, tbl, visited );
             }
         }
     }
@@ -314,7 +320,8 @@ EbnfSyntax::NodeRefSet EbnfAnalyzer::intersectAll(const EbnfAnalyzer::LlkNodes& 
 
 void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, EbnfAnalyzer::LlkNodes& res, const EbnfSyntax::Node* node, FirstFollowSet* tbl)
 {
-    calcLlkFirstSet2( k, 0, 0,res, node, tbl );
+    QSet<const EbnfSyntax::Node*> visited;
+    calcLlkFirstSet2Imp( k, 0, 0,res, node, tbl, visited );
 }
 
 void EbnfAnalyzer::checkForAmbiguity(FirstFollowSet* set, EbnfErrors* err)
@@ -489,8 +496,10 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
 
                 EbnfAnalyzer::LlkNodes llkB;
                 if( b == 0 )
-                    calcLlkFirstSet2(ll,0,-1,llkB, seq, set );
-                else
+                {
+                    QSet<const EbnfSyntax::Node*> visited;
+                    calcLlkFirstSet2Imp(ll,0,-1,llkB, seq, set, visited );
+                }else
                     calcLlkFirstSet2( ll, llkB, b, set );
 
                 const EbnfSyntax::NodeRefSet diff = intersectAll( llkA, llkB );

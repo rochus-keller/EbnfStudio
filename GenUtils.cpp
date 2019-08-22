@@ -34,6 +34,7 @@ QByteArray GenUtils::escapeDollars(QByteArray name)
     if( name.endsWith(dollar))
         name = name.left(name.size()-1) + "_dlr";
     name.replace(dollar,"_dlr_");
+    name.replace('-','_');
     return name;
 }
 
