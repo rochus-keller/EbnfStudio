@@ -47,7 +47,8 @@ SOURCES += main.cpp\
     CocoGen.cpp \
     FirstFollowSet.cpp \
     AntlrGen.cpp \
-    LlgenGen.cpp
+    LlgenGen.cpp \
+    ../GuiTools/CodeEditor.cpp
 
 HEADERS  += MainWindow.h \
     EbnfEditor.h \
@@ -65,11 +66,13 @@ HEADERS  += MainWindow.h \
     CocoGen.h \
     FirstFollowSet.h \
     AntlrGen.h \
-    LlgenGen.h
+    LlgenGen.h \
+    ../GuiTools/CodeEditor.h
 
+INCLUDEPATH += ..
 
-!include(../NAF/Gui2/Gui2.pri) {
-         message( "Missing NAF Gui2" )
+!include(../GuiTools/Menu.pri) {
+         message( "Missing GuiTools" )
  }
 
 RESOURCES += \

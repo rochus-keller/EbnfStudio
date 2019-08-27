@@ -45,7 +45,7 @@
 #include <QDateTime>
 #include <QVBoxLayout>
 #include <QLabel>
-#include <Gui2/AutoMenu.h>
+#include <GuiTools/AutoMenu.h>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -624,7 +624,7 @@ void MainWindow::onPathDblClicked()
 
 void MainWindow::createMenus()
 {
-    Gui2::AutoMenu* file = new Gui2::AutoMenu( tr("File"), this, true );
+    Gui::AutoMenu* file = new Gui::AutoMenu( tr("File"), this, true );
     file->addCommand( "New", this, SLOT(onNew()), tr("CTRL+N"), true );
     file->addCommand( "Open...", this, SLOT(onOpen()), tr("CTRL+O"), true );
     file->addCommand( "Save", this, SLOT(onSave()), tr("CTRL+S"), true );
@@ -637,7 +637,7 @@ void MainWindow::createMenus()
     file->addSeparator();
     file->addAction(tr("Quit"), this, SLOT(close()), tr("CTRL+Q") );
 
-    Gui2::AutoMenu* edit = new Gui2::AutoMenu( tr("Edit"), this, true );
+    Gui::AutoMenu* edit = new Gui::AutoMenu( tr("Edit"), this, true );
     edit->addCommand( "Undo", d_edit, SLOT(handleEditUndo()), tr("CTRL+Z"), true );
     edit->addCommand( "Redo", d_edit, SLOT(handleEditRedo()), tr("CTRL+Y"), true );
     edit->addSeparator();
@@ -660,11 +660,11 @@ void MainWindow::createMenus()
     edit->addCommand( "Fix Indents", d_edit, SLOT(handleFixIndent()) );
     edit->addCommand( "Set Indentation Level...", d_edit, SLOT(handleSetIndent()) );
 
-    Gui2::AutoMenu* analyze = new Gui2::AutoMenu( tr("Analyze"), this, true );
+    Gui::AutoMenu* analyze = new Gui::AutoMenu( tr("Analyze"), this, true );
     //analyze->addCommand( "Calculate First Set", this, SLOT(onOutputFirstSet()) );
     analyze->addCommand( "Find ambiguities", this, SLOT(onFindAmbig() ), tr("CTRL+SHIFT+A"), true );
 
-    Gui2::AutoMenu* generate = new Gui2::AutoMenu( tr("Generate"), this, true );
+    Gui::AutoMenu* generate = new Gui::AutoMenu( tr("Generate"), this, true );
     generate->addCommand( "Generate SynTree", this, SLOT(onGenSynTree()) );
     generate->addCommand( "Generate TokenTypes", this, SLOT(onGenTt()) );
     generate->addCommand( "Generate Html", this, SLOT(onGenHtml()) );
@@ -672,15 +672,15 @@ void MainWindow::createMenus()
     generate->addCommand( "Generate ANTLR", this, SLOT(onGenAntlr()) );
     generate->addCommand( "Generate LLgen", this, SLOT(onGenLlgen()) );
 
-    Gui2::AutoMenu* tools = new Gui2::AutoMenu( tr("Tools"), this, true );
+    Gui::AutoMenu* tools = new Gui::AutoMenu( tr("Tools"), this, true );
     tools->addCommand( "Transform HTML Syntax...", this, SLOT(onTransformHtml()) );
     tools->addCommand( "Transform IEEE EBNF Text...", this, SLOT(onTransformIeeeEbnf()) );
 
-    Gui2::AutoMenu* window = new Gui2::AutoMenu( tr("Window"), this, true );
+    Gui::AutoMenu* window = new Gui::AutoMenu( tr("Window"), this, true );
     window->addCommand( "Set &Font...", d_edit, SLOT(handleSetFont()) );
     window->addCommand( "Show &Linenumbers", d_edit, SLOT(handleShowLinenumbers()) );
 
-    Gui2::AutoMenu* help = new Gui2::AutoMenu( tr("Help"), this, true );
+    Gui::AutoMenu* help = new Gui::AutoMenu( tr("Help"), this, true );
     help->addCommand( "&About...", this, SLOT(onAbout()) );
 }
 
@@ -725,7 +725,7 @@ void MainWindow::createTree()
     addDockWidget( Qt::LeftDockWidgetArea, dock );
     connect( d_edit, SIGNAL(sigSyntaxUpdated()), this, SLOT(onSyntaxUpdated()) );
     connect( tree, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(onTreeDblClicked()) );
-    Gui2::AutoMenu* pop = new Gui2::AutoMenu( tree, true );
+    Gui::AutoMenu* pop = new Gui::AutoMenu( tree, true );
     pop->addAction(tr("Expand all"), tree, SLOT(expandAll()) );
     pop->addCommand(tr("Expand current"), this, SLOT(onExpandSelected()), tr("CTRL+E"), true );
     pop->addAction(tr("Collapse all"), tree, SLOT(collapseAll()) );
