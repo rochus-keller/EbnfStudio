@@ -48,7 +48,8 @@ SOURCES += main.cpp\
     FirstFollowSet.cpp \
     AntlrGen.cpp \
     LlgenGen.cpp \
-    ../GuiTools/CodeEditor.cpp
+    ../GuiTools/CodeEditor.cpp \
+    SyntaxTools.cpp
 
 HEADERS  += MainWindow.h \
     EbnfEditor.h \
@@ -67,7 +68,8 @@ HEADERS  += MainWindow.h \
     FirstFollowSet.h \
     AntlrGen.h \
     LlgenGen.h \
-    ../GuiTools/CodeEditor.h
+    ../GuiTools/CodeEditor.h \
+    SyntaxTools.h
 
 INCLUDEPATH += ..
 

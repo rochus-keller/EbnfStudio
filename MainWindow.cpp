@@ -23,6 +23,7 @@
 #include "EbnfParser.h"
 #include "HtmlSyntax.h"
 #include "EbnfAnalyzer.h"
+#include "SyntaxTools.h"
 #include "SyntaxTreeMdl.h"
 #include "SynTreeGen.h"
 #include "GenUtils.h"
@@ -356,39 +357,7 @@ void MainWindow::onTransformIeeeEbnf()
         return;
     }
 
-    while( !in.atEnd() )
-    {
-        const QByteArray line = in.readLine();
-        const EbnfParser::IeeeLineKind k = EbnfParser::guessKindOfIeeeLine(line);
-        switch( k )
-        {
-        case EbnfParser::ContinueProduction:
-        case EbnfParser::StartProduction:
-            if( k == EbnfParser::StartProduction )
-                out.write("\n");
-            else
-                out.write("\t");
-            foreach( const QByteArray& str, EbnfParser::tokenizeIeeeLine(line) )
-            {
-                out.write(str);
-                out.write(" ");
-            }
-            out.write("\n");
-            break;
-        case EbnfParser::EmptyLine:
-            // ignore;
-            break;
-        case EbnfParser::CommentLine:
-            out.write(line);
-            out.write("\n");
-            break;
-        default:
-            out.write("\n");
-            out.write("// ");
-            out.write(line);
-            break;
-        }
-    }
+    SyntaxTools::transformIeeeEbnf(in,out);
 }
 
 void MainWindow::onSyntaxUpdated()
