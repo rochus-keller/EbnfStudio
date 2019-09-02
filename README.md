@@ -12,7 +12,7 @@ Follow these steps if you intend to build EbnfStudio:
 
 1. Create a directory; let's call it BUILD_DIR
 1. Download the EbnfStudio source code from https://github.com/rochus-keller/EbnfStudio/archive/master.zip and unpack it to the BUILD_DIR; rename the subdirectory to "EbnfStudio".
-1. Download the NAF source code from https://github.com/rochus-keller/NAF/archive/master.zip and unpack it to the BUILD_DIR; rename "NAF-Master" to "NAF". We only need the Gui2 subdirectory so you can delete all other stuff in the NAF directory.
+1. Download the GuiTools source code from https://github.com/rochus-keller/GuiTools/archive/master.zip and unpack it to the BUILD_DIR; rename it to "GuiTools". 
 1. Goto the BUILD_DIR/EbnfStudio subdirectory and execute `QTDIR/bin/qmake EbnfStudio.pro` (see the Qt documentation concerning QTDIR).
 1. Run make; after a couple of seconds you will find the executable in the tmp subdirectory.
 
