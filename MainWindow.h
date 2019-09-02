@@ -65,6 +65,7 @@ protected slots:
     void onDetailsDblClicked();
     void onLink(const QString&);
     void onPathDblClicked();
+    void onTransformAlgolEbnf();
 
 protected:
     void createMenus();

@@ -591,6 +591,28 @@ void MainWindow::onPathDblClicked()
     }
 }
 
+void MainWindow::onTransformAlgolEbnf()
+{
+    ENABLED_IF(true);
+    const QString title = tr("Transform ALGOL Syntax");
+    const QString inPath = QFileDialog::getOpenFileName( this, title, QString(), "*.txt" );
+    if( inPath.isEmpty() )
+        return;
+
+    QFileInfo info(inPath);
+    const QString outPath = info.absoluteDir().absoluteFilePath( info.completeBaseName() + ".ebnf" );
+
+    QFile in(inPath);
+    QFile out(outPath);
+    if( !in.open(QIODevice::ReadOnly) || !out.open(QIODevice::WriteOnly) )
+    {
+        QMessageBox::critical(this,title,tr("Cannot open either input or output file") );
+        return;
+    }
+
+    SyntaxTools::transformAlgolEbnf(in,out);
+}
+
 void MainWindow::createMenus()
 {
     Gui::AutoMenu* file = new Gui::AutoMenu( tr("File"), this, true );
@@ -644,6 +666,7 @@ void MainWindow::createMenus()
     Gui::AutoMenu* tools = new Gui::AutoMenu( tr("Tools"), this, true );
     tools->addCommand( "Transform HTML Syntax...", this, SLOT(onTransformHtml()) );
     tools->addCommand( "Transform IEEE EBNF Text...", this, SLOT(onTransformIeeeEbnf()) );
+    tools->addCommand( "Transform ALGOL Syntax...", this, SLOT(onTransformAlgolEbnf()) );
 
     Gui::AutoMenu* window = new Gui::AutoMenu( tr("Window"), this, true );
     window->addCommand( "Set &Font...", d_edit, SLOT(handleSetFont()) );
