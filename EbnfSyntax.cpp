@@ -267,7 +267,7 @@ bool EbnfSyntax::resolveAllSymbols()
 	}
     d_backRefs.clear();
     for( i = d_order.begin(); i != d_order.end(); ++i )
-	{
+    {
         Node* node = (*i)->d_node;
         if( node )
         {
