@@ -26,12 +26,13 @@
 class GenUtils
 {
 public:
-
-    static QByteArray escapeDollars( QByteArray name );
-    static bool containsAlnum( const QByteArray& str );
-    static QByteArray symToString(const QByteArray& sym );
-    static QByteArray charToString( char );
-    static QByteArrayList orderedTokenList( const QSet<QByteArray>& tokens, bool applySymToString = true );
+    typedef QHash<QString,QString> TokMap;
+    static TokMap s_tokMap;
+    static QString escapeDollars(QString name );
+    static bool containsAlnum( const QString& str );
+    static QString symToString(const QString& sym );
+    static QString charToString(QChar );
+    static QStringList orderedTokenList(const QSet<QString>& tokens, bool applySymToString = true );
 private:
     GenUtils();
 };

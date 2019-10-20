@@ -112,7 +112,7 @@ bool EbnfParser::error(const EbnfToken& t, const QString& msg)
         d_errs->error( EbnfErrors::Syntax, t.d_lineNr, t.d_colNr, t.d_val.toStr() );
     else if( msg.isEmpty() )
         d_errs->error( EbnfErrors::Syntax, t.d_lineNr, t.d_colNr,
-                        QString("unexpected symbol '%1'").arg(t.toString().constData()) );
+                        QString("unexpected symbol '%1'").arg(t.toString()) );
     else
         d_errs->error( EbnfErrors::Syntax, t.d_lineNr, t.d_colNr, msg );
     return false;

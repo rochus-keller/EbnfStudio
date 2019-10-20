@@ -398,6 +398,7 @@ void MainWindow::onGenSynTree()
 {
     ENABLED_IF( !d_edit->getPath().isEmpty() );
 
+    loadTokMap();
     SynTreeGen::generateTree( d_edit->getPath(), d_edit->getSyntax() );
 //    QSet<QByteArray> res = EbnfAnalyzer::collectAllTerminalStrings(d_edit->getSyntax());
 //    for( QSet<QByteArray>::const_iterator i = res.begin(); i != res.end(); ++i )
@@ -408,6 +409,7 @@ void MainWindow::onGenTt()
 {
     ENABLED_IF( !d_edit->getPath().isEmpty() );
 
+    loadTokMap();
     SynTreeGen::generateTt( d_edit->getPath(), d_edit->getSyntax(), true, true );
 }
 
@@ -423,6 +425,7 @@ void MainWindow::onGenCoco()
 {
     ENABLED_IF( !d_edit->getPath().isEmpty() );
 
+    loadTokMap();
     CocoGen gen;
     QFileInfo info(d_edit->getPath());
     EbnfSyntax* syn = d_edit->getSyntax();
@@ -465,16 +468,16 @@ void MainWindow::onOutputFirstSet()
         if( d->d_node == 0 )
             continue;
 
-        out << GenUtils::escapeDollars(d->d_tok.d_val) << endl;
+        out << GenUtils::escapeDollars(d->d_tok.d_val.toStr()) << endl;
 //        out << "first: ";
 //        EbnfSyntax::NodeSet ns = d_tbl->getFirstSet(1, d );
         out << "follow: ";
         EbnfSyntax::NodeRefSet ns = d_tbl->getFollowSet( d );
-        QByteArrayList l;
+        QStringList l;
         for( EbnfSyntax::NodeRefSet::const_iterator j = ns.begin(); j != ns.end(); ++j )
-            l << GenUtils::symToString( (*j).d_node->d_tok.d_val );
+            l << GenUtils::symToString( (*j).d_node->d_tok.d_val.toStr() );
         qSort(l);
-        foreach( const QByteArray& a, l )
+        foreach( const QString& a, l )
             out << a << " ";
         out << endl << endl;
     }
@@ -815,6 +818,23 @@ bool MainWindow::checkSaved(const QString& title)
         }
     }
     return true;
+}
+
+void MainWindow::loadTokMap()
+{
+    QFileInfo info(d_edit->getPath());
+    QFile in( info.absoluteDir().absoluteFilePath( info.completeBaseName() + ".tokmap") );
+    if( !in.open(QIODevice::ReadOnly) )
+        return;
+
+    GenUtils::TokMap m;
+    while( !in.atEnd() )
+    {
+        const QStringList pair = QString::fromUtf8( in.readLine().simplified() ).split(' ');
+        if( pair.size() == 2 )
+            m.insert(pair.first(),pair.last());
+    }
+    GenUtils::s_tokMap = m;
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)

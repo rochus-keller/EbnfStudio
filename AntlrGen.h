@@ -31,8 +31,8 @@ public:
     static bool generate(const QString& atgPath, EbnfSyntax*);
 protected:
     static void writeNode( QTextStream& out, EbnfSyntax::Node* node, bool topLevel );
-    static QString tokenName(const QByteArray& );
-    static QString ruleName( const QByteArray& );
+    static QString tokenName(const QString& );
+    static QString ruleName(const QString& );
 private:
     AntlrGen();
 };

@@ -29,9 +29,9 @@ EbnfAnalyzer::EbnfAnalyzer()
 
 }
 
-QSet<QByteArray> EbnfAnalyzer::collectAllTerminalStrings(EbnfSyntax* syn)
+QSet<QString> EbnfAnalyzer::collectAllTerminalStrings(EbnfSyntax* syn)
 {
-    QSet<QByteArray> res;
+    QSet<QString> res;
     foreach( const EbnfSyntax::Definition* d, syn->getDefs() )
     {
         res += collectAllTerminalStrings( d->d_node );
@@ -39,24 +39,24 @@ QSet<QByteArray> EbnfAnalyzer::collectAllTerminalStrings(EbnfSyntax* syn)
     return res;
 }
 
-QByteArrayList EbnfAnalyzer::collectAllTerminalProductions(EbnfSyntax* syn)
+QStringList EbnfAnalyzer::collectAllTerminalProductions(EbnfSyntax* syn)
 {
-    QByteArrayList res;
+    QStringList res;
     foreach( const EbnfSyntax::Definition* d, syn->getOrderedDefs() )
     {
         if( d->d_node == 0 && d->d_tok.d_op == EbnfToken::Normal )
-            res.append( d->d_tok.d_val );
+            res.append( d->d_tok.d_val.toStr() );
     }
     return res;
 }
 
-QSet<QByteArray> EbnfAnalyzer::collectAllTerminalStrings(EbnfSyntax::Node* node)
+QSet<QString> EbnfAnalyzer::collectAllTerminalStrings(EbnfSyntax::Node* node)
 {
-    QSet<QByteArray> res;
+    QSet<QString> res;
     if( node == 0 )
         return res;
     if( node->d_type == EbnfSyntax::Node::Terminal )
-        res << node->d_tok.d_val;
+        res << node->d_tok.d_val.toStr();
     foreach( EbnfSyntax::Node* sub, node->d_subs )
         res += collectAllTerminalStrings( sub );
     return res;

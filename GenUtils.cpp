@@ -21,12 +21,14 @@
 #include <QtDebug>
 #include <QHash>
 
+GenUtils::TokMap GenUtils::s_tokMap;
+
 GenUtils::GenUtils()
 {
 
 }
 
-QByteArray GenUtils::escapeDollars(QByteArray name)
+QString GenUtils::escapeDollars(QString name)
 {
     const char dollar = '$';
     if( name.startsWith( dollar ))
@@ -38,40 +40,38 @@ QByteArray GenUtils::escapeDollars(QByteArray name)
     return name;
 }
 
-bool GenUtils::containsAlnum( const QByteArray& str )
+bool GenUtils::containsAlnum( const QString& str )
 {
     for( int i = 0; i < str.size(); i++ )
     {
-        if( ::isalnum( str[i] ) )
+        if( str[i].isLetterOrNumber() )
             return true;
     }
     return false;
 }
 
-QByteArray GenUtils::symToString(const QByteArray& str)
+QString GenUtils::symToString(const QString& str)
 {
     if( str.isEmpty() )
         return str;
 
-    static QHash<QByteArray,QByteArray> map;
-
-    if( map.isEmpty() )
+    if( s_tokMap.isEmpty() )
     {
-        map.insert("(*","Latt");
-        map.insert("*)", "Ratt");
-        map.insert("/*", "Lcmt");
-        map.insert("*/", "Rcmt");
-        map.insert("<=", "Leq");
-        map.insert(">=", "Geq");
-        // map.insert("#0", "HashZero");
+        s_tokMap.insert("(*","Latt");
+        s_tokMap.insert("*)", "Ratt");
+        s_tokMap.insert("/*", "Lcmt");
+        s_tokMap.insert("*/", "Rcmt");
+        s_tokMap.insert("<=", "Leq");
+        s_tokMap.insert(">=", "Geq");
     }
-    QByteArray res = map.value(str);
-    if( !res.isEmpty() )
-        return res;
+    TokMap::const_iterator it = s_tokMap.find(str);
+    if( it != s_tokMap.end() )
+        return it.value();
 
     if( containsAlnum(str) )
         return escapeDollars(str);
 
+    QString res;
     int i = 0;
     while( i < str.size() )
     {
@@ -79,16 +79,20 @@ QByteArray GenUtils::symToString(const QByteArray& str)
         while( i + n < str.size() && str[i] == str[i+n] )
             n++;
         if( n > 1 )
-            res += QByteArray::number(n);
+            res += QString::number(n);
         res += charToString(str[i]);
         i += n;
     }
     return res;
 }
 
-QByteArray GenUtils::charToString(char c)
+QString GenUtils::charToString(QChar c)
 {
-    switch( c )
+    TokMap::const_iterator i = s_tokMap.find(c);
+    if( i != s_tokMap.end() )
+        return i.value();
+
+    switch( c.unicode() )
     {
     case '+':
         return "Plus";
@@ -144,13 +148,15 @@ QByteArray GenUtils::charToString(char c)
         return "Colon";
     case '$':
         return "Dlr";
+    case '"':
+        return "Quote";
     default:
-        return QByteArray::number( int(c), 16 );
+        return QString::number( c.unicode(), 16 );
     }
-    return QByteArray();
+    return QString();
 }
 
-static bool lessThan( const QByteArray& lhs, const QByteArray& rhs )
+static bool lessThan( const QString& lhs, const QString& rhs )
 {
     const bool lhsAlnum = GenUtils::containsAlnum(lhs);
     const bool rhsAlnum = GenUtils::containsAlnum(rhs);
@@ -160,9 +166,9 @@ static bool lessThan( const QByteArray& lhs, const QByteArray& rhs )
         return !lhsAlnum && rhsAlnum;
 }
 
-QByteArrayList GenUtils::orderedTokenList(const QSet<QByteArray>& tokens, bool applySymToString)
+QStringList GenUtils::orderedTokenList(const QSet<QString>& tokens, bool applySymToString)
 {
-    QByteArrayList res = tokens.toList();
+    QStringList res = tokens.toList();
     std::sort( res.begin(), res.end(), lessThan );
 
     if( applySymToString )

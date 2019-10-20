@@ -34,7 +34,7 @@ public:
 protected:
     void writeNode( QTextStream& out, EbnfSyntax::Node* node, bool topLevel, bool buildAst );
     void handlePredicate(QTextStream& out, EbnfSyntax::Node* pred, EbnfSyntax::Node* node );
-    QString tokenName(const QByteArray& );
+    QString tokenName(const QString& );
 private:
     FirstFollowSet* d_tbl;
 };

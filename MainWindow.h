@@ -75,6 +75,7 @@ protected:
     void createPathView();
     void createUsedBy();
     bool checkSaved( const QString& title );
+    void loadTokMap();
 
     // overrides
     void closeEvent ( QCloseEvent * event );

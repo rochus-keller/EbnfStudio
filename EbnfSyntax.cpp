@@ -35,10 +35,10 @@ const char* EbnfSyntax::Node::s_typeName[] =
 
 QString EbnfSyntax::pretty(const EbnfSyntax::NodeRefSet& s)
 {
-    QByteArrayList l;
+    QStringList l;
     foreach( const NodeRef& r, s )
     {
-        l.append( "'" + r.d_node->d_tok.d_val.toBa() + "'" );
+        l.append( "'" + r.d_node->d_tok.d_val.toStr() + "'" );
     }
     qSort(l);
     return l.join(' ');
@@ -46,10 +46,10 @@ QString EbnfSyntax::pretty(const EbnfSyntax::NodeRefSet& s)
 
 QString EbnfSyntax::pretty(const EbnfSyntax::NodeSet& s)
 {
-    QByteArrayList l;
+    QStringList l;
     foreach( const Node* r, s )
     {
-        l.append( "'" + r->d_tok.d_val.toBa() + "'" );
+        l.append( "'" + r->d_tok.d_val.toStr() + "'" );
     }
     qSort(l);
     return l.join(' ');

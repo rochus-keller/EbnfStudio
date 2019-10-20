@@ -19,7 +19,7 @@
 
 #include "EbnfToken.h"
 
-QByteArray EbnfToken::toString(bool labeled) const
+QString EbnfToken::toString(bool labeled) const
 {
     switch( d_type )
     {
@@ -27,25 +27,25 @@ QByteArray EbnfToken::toString(bool labeled) const
         return "<invalid>";
     case Production:
         if( labeled )
-            return "production " + d_val.toBa();
+            return "production " + d_val.toStr();
         else
-            return d_val;
+            return d_val.toStr();
     case Assig:
         return "::=";
     case AddTo:
         return "+=";
     case NonTerm:
         if( labeled )
-            return "nonterminal " + d_val.toBa();
+            return "nonterminal " + d_val.toStr();
         else
-            return d_val;
+            return d_val.toStr();
     case Keyword:
         if( labeled )
-            return "keyword " + d_val.toBa();
+            return "keyword " + d_val.toStr();
         else
-            return d_val;
+            return d_val.toStr();
     case Literal:
-        return '\'' + d_val.toBa() + '\'';
+        return '\'' + d_val.toStr() + '\'';
     case Bar:
         return "|";
     case LPar:
@@ -62,14 +62,14 @@ QByteArray EbnfToken::toString(bool labeled) const
         return "}";
     case Predicate:
         if( labeled )
-            return "predicate \\" + d_val.toBa() + "\\";
+            return "predicate \\" + d_val.toStr() + "\\";
         else
-            return "\\" + d_val.toBa() + "\\";
+            return "\\" + d_val.toStr() + "\\";
     case Comment:
         if( labeled )
-            return "comment " + d_val.toBa();
+            return "comment " + d_val.toStr();
         else
-            return d_val;
+            return d_val.toStr();
     case Eof:
         return "<eof>";
     case PpDefine:

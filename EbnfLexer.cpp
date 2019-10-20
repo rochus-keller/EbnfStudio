@@ -55,15 +55,15 @@ EbnfToken EbnfLexer::nextTokenImp()
     Q_ASSERT( d_colNr < d_line.size() );
     while( d_colNr < d_line.size() )
     {
-        const int ch = quint8(d_line[d_colNr]);
+        const QChar ch = d_line[d_colNr];
 
         if( ch == '/' && lookAhead(1) == '/' )
-            return token(EbnfToken::Comment, d_line.size() - d_colNr, d_line.mid( d_colNr + 2 ).trimmed() );
+            return token(EbnfToken::Comment, d_line.size() - d_colNr, d_line.mid( d_colNr + 2 ).trimmed().toUtf8() );
 
         if( d_colNr == 0 && ch == '#' )
         {
             return ppsym();
-        }else if( ::isalnum(ch) || ch == '$' || ch == '%' )
+        }else if( ch.isLetterOrNumber() || ch == '$' || ch == '%' )
         {
             // Identifier oder Reserved Word
             EbnfToken t = ident();
@@ -100,7 +100,7 @@ EbnfToken EbnfLexer::nextTokenImp()
         if( potentialProduction )
             return token( EbnfToken::Invalid, 0, "production or comment expected" );
 
-        switch( ch )
+        switch( ch.unicode() )
         {
         case ':':
             if( lookAhead(1) == ':' && lookAhead(2) == '=' )
@@ -131,7 +131,7 @@ EbnfToken EbnfLexer::nextTokenImp()
         }else
         {
             // Error
-            return token( EbnfToken::Invalid, 0, QString("unexpected character '%1' %2").arg(char(ch)).arg(ch).toUtf8() );
+            return token( EbnfToken::Invalid, 0, QString("unexpected character '%1' %2").arg(ch).arg(ch.unicode()).toUtf8() );
         }
     }
     Q_ASSERT(false);
@@ -174,10 +174,10 @@ bool EbnfLexer::readKeywordsFromFile(const QString& path)
     if( !in.open(QIODevice::ReadOnly) )
         return false;
     d_kw.clear();
-    QByteArrayList kw = in.readAll().simplified().split(' ');
+    QStringList kw = QString::fromUtf8(in.readAll().simplified()).split(' ');
     for( int i = 0; i < kw.size(); i++ )
     {
-        d_kw.insert( EbnfToken::getSym(kw[i]) );
+        d_kw.insert( EbnfToken::getSym(kw[i].toUtf8()) );
     }
     return true;
 }
@@ -205,7 +205,7 @@ EbnfToken EbnfLexer::peekToken(quint8 lookAhead)
 int EbnfLexer::skipWhiteSpace()
 {
     const int colNr = d_colNr;
-    while( d_colNr < d_line.size() && ::isspace( d_line[d_colNr] ) )
+    while( d_colNr < d_line.size() && d_line[d_colNr].isSpace() )
         d_colNr++;
     return d_colNr - colNr;
 }
@@ -222,7 +222,7 @@ int EbnfLexer::lookAhead(int off) const
 {
     if( int( d_colNr + off ) < d_line.size() )
     {
-        return d_line[ d_colNr + off ];
+        return d_line[ d_colNr + off ].unicode();
     }else
         return 0;
 }
@@ -247,13 +247,13 @@ EbnfToken EbnfLexer::ident()
     while( true )
     {
         if( (d_colNr+off) >= d_line.size() ||
-                ( !::isalnum(d_line[d_colNr+off]) && d_line[d_colNr+off] != '_' &&
+                ( !d_line[d_colNr+off].isLetterOrNumber() && d_line[d_colNr+off] != '_' &&
                   d_line[d_colNr+off] != '$' ) ) // hier darf '-' nicht wie '$' behandelt werden, sonst wird - Teil des Idents!
             break;
         else
             off++;
     }
-    const QByteArray str = d_line.mid(d_colNr, off );
+    const QByteArray str = d_line.mid(d_colNr, off ).toUtf8();
     EbnfToken t = token( EbnfToken::NonTerm, off, str ); // ob es sich um ein KeyWord handelt, wird später entschieden
     t.d_op = readOp();
     return t;
@@ -269,7 +269,7 @@ EbnfToken EbnfLexer::attribute()
         else
             off++;
     }
-    const QByteArray str = d_line.mid(d_colNr + 1, off - 1 );
+    const QByteArray str = d_line.mid(d_colNr + 1, off - 1 ).toUtf8();
     return token( EbnfToken::Predicate, off+1, str );
 }
 
@@ -284,10 +284,10 @@ EbnfToken EbnfLexer::literal()
             break;
         off++;
     }
-    QByteArray str = d_line.mid(d_colNr + 1, off - 1 );
+    QString str = d_line.mid(d_colNr + 1, off - 1 );
     str.replace("\\'", "'");
     str.replace("\\\\", "\\");
-    EbnfToken t = token( EbnfToken::Literal, off+1, str );
+    EbnfToken t = token( EbnfToken::Literal, off+1, str.toUtf8() );
     t.d_op = readOp();
     return t;
 }
@@ -297,12 +297,12 @@ EbnfToken EbnfLexer::ppsym()
     int off = 1; // off == 0 wurde bereits dem ident zugeordnet
     while( true )
     {
-        if( (d_colNr+off) >= d_line.size() || !::isalnum(d_line[d_colNr+off]) )
+        if( (d_colNr+off) >= d_line.size() || !d_line[d_colNr+off].isLetterOrNumber() )
             break;
         else
             off++;
     }
-    const QByteArray keyword = d_line.mid(d_colNr, off );
+    const QByteArray keyword = d_line.mid(d_colNr, off ).toUtf8();
     EbnfToken::TokenType tt = EbnfToken::Invalid;
     if( keyword == "#define" )
         tt = EbnfToken::PpDefine;
@@ -319,15 +319,15 @@ EbnfToken EbnfLexer::ppsym()
     if( tt == EbnfToken::Invalid )
         return token( EbnfToken::Invalid, 0, QString("invalid preprocessor symbol '%1'").arg(keyword.data()).toUtf8() );
     const int cmtPos = d_line.indexOf("//", off);
-    const QByteArray str = ( cmtPos == -1 ? d_line.mid(off) : d_line.mid(off,cmtPos-off) ).trimmed();
-    return token( tt, d_line.size(), str );
+    const QString str = ( cmtPos == -1 ? d_line.mid(off) : d_line.mid(off,cmtPos-off) ).trimmed();
+    return token( tt, d_line.size(), str.toUtf8() );
 }
 
 EbnfToken::Handling EbnfLexer::readOp()
 {
     if( d_colNr < d_line.size() )
     {
-        switch( d_line[d_colNr] )
+        switch( d_line[d_colNr].unicode() )
         {
         case '*':
             d_colNr++;

@@ -120,6 +120,7 @@ void EbnfHighlighter::highlightBlock(const QString& text)
         }
         if( f.isValid() )
         {
+            const QString s = t.d_val.toStr();
             if( t.d_type == EbnfToken::Literal )
             {
                 setFormat( t.d_colNr - 1, 1, d_format[C_Gray] );

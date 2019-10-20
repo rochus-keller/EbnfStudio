@@ -30,8 +30,8 @@ class EbnfAnalyzer
 public:
     EbnfAnalyzer();
 
-    static QSet<QByteArray> collectAllTerminalStrings( EbnfSyntax* );
-    static QByteArrayList collectAllTerminalProductions( EbnfSyntax* );
+    static QSet<QString> collectAllTerminalStrings( EbnfSyntax* );
+    static QStringList collectAllTerminalProductions( EbnfSyntax* );
 
     typedef QList<EbnfSyntax::NodeRefSet> LlkNodes;
     static void calcLlkFirstSet(quint16 k, quint16 curBin, LlkNodes&, const EbnfSyntax::Node* node, FirstFollowSet* );
@@ -43,7 +43,7 @@ public:
 
     static EbnfSyntax::ConstNodeList findPath( const EbnfSyntax::Node* from, const EbnfSyntax::Node* to );
 protected:
-    static QSet<QByteArray> collectAllTerminalStrings( EbnfSyntax::Node* );
+    static QSet<QString> collectAllTerminalStrings( EbnfSyntax::Node* );
     static void findAmbiguousAlternatives( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors* );
     static void findAmbiguousOptionals( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors* );
     static void reportAmbig(EbnfSyntax::Node* seq, int ambigIdx, const EbnfSyntax::NodeRefSet& diff, const EbnfSyntax::NodeSet& ambigSet2, FirstFollowSet*, EbnfErrors* );

@@ -101,14 +101,14 @@ QVariant SyntaxTreeMdl::data(const QModelIndex& index, int role) const
             case EbnfSyntax::Node::Alternative:
                 return _quant( node->d_quant, "alt" );
             default:
-                return s->d_sym->d_tok.d_val.toBa();
+                return s->d_sym->d_tok.d_val.toStr();
             }
         }else if( s->d_sym->isRepeatable() )
             return QString("{ %1").arg(s->d_sym->d_tok.d_val.toStr());
         else if( s->d_sym->isNullable() )
             return QString("[ %1").arg(s->d_sym->d_tok.d_val.toStr());
         else
-            return s->d_sym->d_tok.d_val.toBa();
+            return s->d_sym->d_tok.d_val.toStr();
         break;
     case Qt::ForegroundRole:
         if( s->d_sym->d_tok.d_type != EbnfToken::Production )
@@ -201,10 +201,10 @@ void SyntaxTreeMdl::fillTop()
 {
     if( d_syn.constData() == 0 )
         return;
-    typedef QMap<QByteArray,EbnfSyntax::Definition*> Sorter;
+    typedef QMultiMap<QString,EbnfSyntax::Definition*> Sorter;
     Sorter sorter;
     for( EbnfSyntax::Definitions::const_iterator i = d_syn->getDefs().begin(); i != d_syn->getDefs().end(); ++i )
-        sorter.insert( i.key().toBa().toLower(), i.value() );
+        sorter.insert( i.key().toStr().toLower(), i.value() );
 
     for( Sorter::const_iterator j = sorter.begin(); j != sorter.end(); ++j )
     {

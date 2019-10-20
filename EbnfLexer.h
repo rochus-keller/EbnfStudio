@@ -59,7 +59,7 @@ private:
     QIODevice* d_in;
     quint32 d_lineNr; // current line, starting with 1
     quint16 d_colNr;  // current column (left of char), starting with 0
-    QByteArray d_line;
+    QString d_line;
     EbnfToken d_lastToken;
     QList<EbnfToken> d_buffer;
     Keywords d_kw;
