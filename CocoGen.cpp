@@ -241,10 +241,8 @@ void CocoGen::handlePredicate(QTextStream& out,EbnfSyntax::Node* pred, EbnfSynta
     if( ll > 0 )
     {
         EbnfAnalyzer::LlkNodes llkNodes;
-        EbnfAnalyzer::calcLlkFirstSet( ll,  0, llkNodes,sequence, d_tbl );
-//        qDebug() << "**** lookAheadNext result";
-//        for(int n = 0; n < llkNodes.size(); n++ )
-//            qDebug() << n << llkNodes[n];
+        // EbnfAnalyzer::calcLlkFirstSet( ll,  0, llkNodes,sequence, d_tbl );
+        EbnfAnalyzer::calcLlkFirstSet2( ll,  llkNodes,sequence, d_tbl );
         out << "IF( ";
         for( int i = 0; i < llkNodes.size(); i++ )
         {

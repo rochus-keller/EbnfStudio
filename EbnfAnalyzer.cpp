@@ -83,6 +83,8 @@ static inline int countNotEmpty( const EbnfAnalyzer::LlkNodes& l )
 
 void EbnfAnalyzer::calcLlkFirstSet(quint16 k, quint16 curBin, LlkNodes& res, const EbnfSyntax::Node* node, FirstFollowSet* tbl)
 {
+    // Obsolete, use calcLlkFirstSet2 instead
+
     // Gehe entlang der Blätter des Baums und sammle alle Terminals ein gruppiert in Distanzboxen.
     // TODO: funktioniert noch nicht für alle möglichen Fälle!
     // Wird eigentlich nur mit node=Sequence aufgerufen, da ja Predicates nur dort vorkommen
@@ -130,6 +132,14 @@ void EbnfAnalyzer::calcLlkFirstSet(quint16 k, quint16 curBin, LlkNodes& res, con
     }
 }
 
+static QByteArray ws( int level )
+{
+    QByteArray res;
+    for( int i = 0; i < qAbs(level); i++ )
+        res += " | ";
+    return res;
+}
+
 void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNodes& res,
                                     const EbnfSyntax::Node* node, FirstFollowSet* tbl, QSet<const EbnfSyntax::Node*>& visited)
 {
@@ -139,6 +149,9 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
         return;
     else
         visited.insert(node);
+
+//    qDebug() << ws(level).constData() << "visit" <<
+//                node->d_tok.d_lineNr << node->d_tok.d_colNr << node->toString() << node->d_tok.toString(); // TEST
 
     // TODO: ev. separate Funktion um von einem Node zum nächsten zu wandern und im Falle von usedBy und Alternative
     // mehrere parallele Nodes zurückzugeben. Offen ist die Ermittlung des curBin.
@@ -150,6 +163,8 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
         case EbnfSyntax::Node::Terminal:
             resize( res, curBin );
             res[curBin].insert( node ); // hier ist dieser node gemeint, nicht Follow(node)!
+//            qDebug() << ws(level).constData() << "insert" << curBin <<
+//                        node->d_tok.d_val.data() << node->d_tok.d_lineNr << node->d_tok.d_colNr; // TEST
             break;
         case EbnfSyntax::Node::Nonterminal:
             if( node->d_def && node->d_def->d_node )
@@ -159,9 +174,12 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
                 // wie Terinal
                 resize( res, curBin );
                 res[curBin].insert( node );
+//                qDebug() << ws(level).constData() << "insert" << curBin <<
+//                            node->d_tok.d_val.data() << node->d_tok.d_lineNr << node->d_tok.d_colNr; // TEST
             }
             break;
         case EbnfSyntax::Node::Sequence:
+#if 1
             foreach( EbnfSyntax::Node* sub, node->d_subs )
             {
                 if( sub->doIgnore() )
@@ -170,7 +188,51 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
                 if( res.size() >= k )
                     break;
             }
-            // TODO: repetition and options
+            // TODO: repetition, option
+#else
+#if 1       // TODO the following does not work yet
+            {
+                QList<EbnfSyntax::Node*> toVisit;
+                foreach( EbnfSyntax::Node* sub, node->d_subs )
+                {
+                    if( !sub->doIgnore() )
+                        toVisit << sub;
+                }
+                for( int i = curBin; i < k && i < toVisit.size(); i++ )
+                {
+                    QSet<const EbnfSyntax::Node*> check = visited;
+                    for( int j = i; j < toVisit.size(); j++ )
+                    {
+                        calcLlkFirstSet2Imp( k, i, level + 1, res, toVisit[j], tbl, check );
+                        if( !toVisit[j]->isNullable() )
+                            break;
+                    }
+                    if( res.size() >= k )
+                        break;
+                }
+            }
+            // TODO: repetition
+#else
+            for( int i = curBin; i < k; i++ )
+            {
+                QSet<const EbnfSyntax::Node*> check = visited;
+                int j = 0;
+                foreach( EbnfSyntax::Node* sub, node->d_subs )
+                {
+                    if( sub->doIgnore() )
+                        continue;
+                    if( j++ < i )
+                        continue;
+                    calcLlkFirstSet2Imp( k, i, level + 1, res, sub, tbl, check );
+                    if( !sub->isNullable() )
+                        break;
+                }
+                //if( res.size() >= k )
+                //    break;
+            }
+            // TODO: repetition
+#endif
+#endif
             break;
         case EbnfSyntax::Node::Alternative:
             foreach( EbnfSyntax::Node* sub, node->d_subs )
