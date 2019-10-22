@@ -268,11 +268,11 @@ bool EbnfSyntax::resolveAllSymbols()
     d_backRefs.clear();
     for( i = d_order.begin(); i != d_order.end(); ++i )
     {
-        Node* node = (*i)->d_node;
-        if( node )
+        Definition* d = (*i);
+        if( d->d_node && !d->doIgnore() )
         {
             //qDebug() << Node::s_typeName[(*i)->d_node->d_type] << (*i)->d_node->d_tok.toString(false);
-            resolveAllSymbols( node );
+            resolveAllSymbols( d->d_node );
         }
 	}
     for( int j = 1; j < d_order.size(); j++ ) // ignore first
@@ -473,6 +473,10 @@ bool EbnfSyntax::resolveAllSymbols(EbnfSyntax::Node *node)
                 def->d_usedBy.insert(node);
                 node->d_def = def;
                 d_backRefs[node->d_tok.d_val].append(node);
+                if( d_errs && def->doIgnore() )
+                    d_errs->error( EbnfErrors::Semantics, node->d_tok.d_lineNr, node->d_tok.d_colNr,
+                                   QObject::tr("'%1' uses skipped '%2'").
+                                        arg(node->d_owner->d_tok.d_val.toStr()).arg(def->d_tok.d_val.toStr()) );
             }else
             {
                 if( d_errs )
