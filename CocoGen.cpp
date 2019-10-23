@@ -241,8 +241,8 @@ void CocoGen::handlePredicate(QTextStream& out,EbnfSyntax::Node* pred, EbnfSynta
     if( ll > 0 )
     {
         EbnfAnalyzer::LlkNodes llkNodes;
-        // EbnfAnalyzer::calcLlkFirstSet( ll,  0, llkNodes,sequence, d_tbl );
-        EbnfAnalyzer::calcLlkFirstSet2( ll,  llkNodes,sequence, d_tbl );
+        EbnfAnalyzer::calcLlkFirstSet( ll, llkNodes,sequence, d_tbl );
+        //EbnfAnalyzer::calcLlkFirstSet2( ll, llkNodes,sequence, d_tbl );
         out << "IF( ";
         for( int i = 0; i < llkNodes.size(); i++ )
         {
@@ -250,12 +250,16 @@ void CocoGen::handlePredicate(QTextStream& out,EbnfSyntax::Node* pred, EbnfSynta
                 out << "&& ";
             if( llkNodes[i].size() > 1 )
                 out << "( ";
+            QStringList names;
             EbnfSyntax::NodeRefSet::const_iterator j;
             for( j = llkNodes[i].begin(); j != llkNodes[i].end(); ++j )
+                names << tokenName( (*j).d_node->d_tok.d_val.toStr() );
+            names.sort(Qt::CaseInsensitive);
+            for( int j = 0; j < names.size(); j++ )
             {
-                if( j != llkNodes[i].begin() )
+                if( j != 0 )
                     out << "|| ";
-                out << "peek(" << i+1 << ") == _" << tokenName( (*j).d_node->d_tok.d_val.toStr() ) << " ";
+                out << "peek(" << i+1 << ") == _" << names[j] << " ";
             }
             if( llkNodes[i].size() > 1 )
                 out << ") ";

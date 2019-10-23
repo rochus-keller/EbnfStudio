@@ -174,7 +174,8 @@ void LlgenGen::handlePredicate(QTextStream& out, EbnfSyntax::Node* pred, EbnfSyn
             return;
 
         EbnfAnalyzer::LlkNodes llkNodes;
-        EbnfAnalyzer::calcLlkFirstSet2( ll, llkNodes,sequence, tbl );
+        //EbnfAnalyzer::calcLlkFirstSet2( ll, llkNodes,sequence, tbl );
+        EbnfAnalyzer::calcLlkFirstSet( ll, llkNodes,sequence, tbl );
         out << "%if( ";
         for( int i = 0; i < llkNodes.size(); i++ )
         {
