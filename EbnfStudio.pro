@@ -49,7 +49,8 @@ SOURCES += main.cpp\
     AntlrGen.cpp \
     LlgenGen.cpp \
     ../GuiTools/CodeEditor.cpp \
-    SyntaxTools.cpp
+    SyntaxTools.cpp \
+    LaParser.cpp
 
 HEADERS  += MainWindow.h \
     EbnfEditor.h \
@@ -69,7 +70,8 @@ HEADERS  += MainWindow.h \
     AntlrGen.h \
     LlgenGen.h \
     ../GuiTools/CodeEditor.h \
-    SyntaxTools.h
+    SyntaxTools.h \
+    LaParser.h
 
 INCLUDEPATH += ..
 

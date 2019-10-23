@@ -20,6 +20,7 @@
 #include "EbnfParser.h"
 #include "EbnfLexer.h"
 #include "EbnfErrors.h"
+#include "LaParser.h"
 
 EbnfParser::EbnfParser(QObject *parent) : QObject(parent),d_lex(0),d_def(0),d_errs(0)
 {
