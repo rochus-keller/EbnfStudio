@@ -19,6 +19,17 @@
 
 #include "LaParser.h"
 #include <QString>
+#include <QtDebug>
+
+const char* LaLexer::Tok::s_typeNames[] =
+{
+    "???", "Literal", "Ident", "Or", "And", "Not", "LPar", "RPar", "Colon", "Index", "Eof"
+};
+const char* LaParser::Ast::s_typeNames[] =
+{
+    "???",
+    "And", "Or", "Not", "Ident", "Literal", "La"
+};
 
 LaParser::LaParser()
 {
@@ -28,21 +39,24 @@ LaParser::LaParser()
 bool LaParser::parse(const QByteArray& str)
 {
     d_err.clear();
-    d_lax.clear();
-    const QByteArrayList lax = str.split(':');
-    foreach( QByteArray l, lax )
+    d_res.reset();
+    d_lex.setStr( str );
+#if 0
+    LaLexer::Tok t = d_lex.nextToken();
+    while( t.isValid())
     {
-        l = l.trimmed();
-        if( l.isEmpty() )
-        {
-            d_lax << AstRef();
-            continue;
-        } // else
-        d_lex.setStr( l );
-        AstRef e = expression();
-        if( e.data() == 0 )
-            return false;
-        d_lax << e;
+        qDebug() << LaLexer::Tok::s_typeNames[t.d_type] << t.d_val;
+        t = d_lex.nextToken();
+    }
+    d_lex.setStr( str );
+#endif
+    d_res = laExpr();
+    if( d_res.data() == 0 )
+        return false;
+    if( d_lex.nextToken().d_type != LaLexer::Tok::Eof )
+    {
+        d_err = "invalid LaExpr";
+        return false;
     }
     return true;
 }
@@ -60,6 +74,29 @@ LaParser::AstRef LaParser::expression()
         r = term();
         if( r.data() == 0 )
             return r;
+        terms << r;
+    }
+    if( terms.size() == 1 )
+        return terms.first();
+    r = new Ast(Ast::Or);
+    r->d_subs = terms;
+    return r;
+}
+
+LaParser::AstRef LaParser::laExpr()
+{
+    QList<AstRef> terms;
+    AstRef r = laTerm();
+    if( r.data() == 0 )
+        return r;
+    terms << r;
+    while( d_lex.peekToken().d_type == LaLexer::Tok::Or )
+    {
+        d_lex.nextToken();
+        r = laTerm();
+        if( r.data() == 0 )
+            return r;
+        terms << r;
     }
     if( terms.size() == 1 )
         return terms.first();
@@ -81,6 +118,29 @@ LaParser::AstRef LaParser::term()
         r = factor();
         if( r.data() == 0 )
             return r;
+        factors << r;
+    }
+    if( factors.size() == 1 )
+        return factors.first();
+    r = new Ast(Ast::And);
+    r->d_subs = factors;
+    return r;
+}
+
+LaParser::AstRef LaParser::laTerm()
+{
+    QList<AstRef> factors;
+    AstRef r = laFactor();
+    if( r.data() == 0 )
+        return r;
+    factors << r;
+    while( d_lex.peekToken().d_type == LaLexer::Tok::And )
+    {
+        d_lex.nextToken();
+        r = laFactor();
+        if( r.data() == 0 )
+            return r;
+        factors << r;
     }
     if( factors.size() == 1 )
         return factors.first();
@@ -119,6 +179,33 @@ LaParser::AstRef LaParser::factor()
         return r;
     }
     d_err = "invalid factor";
+    return AstRef();
+}
+
+LaParser::AstRef LaParser::laFactor()
+{
+    LaLexer::Tok t = d_lex.nextToken();
+    if( t.d_type == LaLexer::Tok::Index )
+    {
+        if( t.d_val.toUInt() == 0 )
+        {
+            d_err = "expecting Index > 0";
+            return AstRef();
+        }
+        LaLexer::Tok colon = d_lex.nextToken();
+        if( colon.d_type != LaLexer::Tok::Colon )
+        {
+            d_err = "expecting ':'";
+            return AstRef();
+        }
+        AstRef r = factor();
+        if( r.data() == 0 )
+            return r;
+        AstRef n(new Ast(Ast::La,t.d_val));
+        n->d_subs << r;
+        return n;
+    }
+    d_err = "invalid la_factor";
     return AstRef();
 }
 
@@ -169,6 +256,10 @@ LaLexer::Tok LaLexer::nextTokenImp()
             return token(Tok::And);
         if( ch == '!' )
             return token(Tok::Not);
+        if( ch == ':' )
+            return token(Tok::Colon);
+        if( ::isdigit(ch) )
+            return index();
         if( ::isalpha(ch) )
             return ident();
         if( ch == '\'' )
@@ -215,8 +306,36 @@ LaLexer::Tok LaLexer::literal()
     return token( Tok::Literal, off+1, str );
 }
 
+LaLexer::Tok LaLexer::index()
+{
+    int off = 1; // off == 0 wurde bereits dem ident zugeordnet
+    while( true )
+    {
+        if( (d_pos+off) >= d_str.size() || !::isdigit(d_str[d_pos+off]) )
+            break;
+        else
+            off++;
+    }
+    return token(Tok::Index,off, d_str.mid(d_pos, off ));
+}
+
 LaLexer::Tok LaLexer::token(quint8 type, int len, const QByteArray& v)
 {
     d_pos += len;
     return Tok( type, v );
+}
+
+static QByteArray ws( int level )
+{
+    QByteArray res;
+    for( int i = 0; i < level; i++ )
+        res += " | ";
+    return res;
+}
+
+void LaParser::Ast::dump(int level)
+{
+    qDebug() << ws(level).constData() << s_typeNames[d_type] << d_val;
+    foreach( AstRef a, d_subs )
+        a->dump(level+1);
 }

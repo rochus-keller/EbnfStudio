@@ -554,6 +554,11 @@ void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollow
             if( predB != 0 )
                 ll = qMax( ll, predB->getLlk() );
 
+            // TODO: each alternative might have a different predicate type LL or LA
+            // currently just assume everything is ok if an LA predicate is present
+            if( predA && !predA->getLa().isEmpty() || predB && !predB->getLa().isEmpty() )
+                continue;
+
             if( ll > 0 )
             {
                 EbnfAnalyzer::LlkNodes llkA;
@@ -636,6 +641,10 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
         int ll = 0;
         if( pred != 0 )
         {
+            // TODO: currently just assume everything is ok if an LA predicate is present
+            if( !pred->getLa().isEmpty() )
+                continue;
+
             ll = pred->getLlk();
             if( ll > 0 )
             {

@@ -21,6 +21,7 @@
 #include "EbnfAnalyzer.h"
 #include "FirstFollowSet.h"
 #include "GenUtils.h"
+#include "LaParser.h"
 #include "SynTreeGen.h"
 #include <QFile>
 #include <QTextStream>
@@ -49,6 +50,7 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
     const bool parentPtr = !syn->getPragmaFirst("%parentptr").isEmpty();
 
     d_tbl = tbl;
+    d_syn = syn;
 
     const EbnfSyntax::Definition* root = syn->getOrderedDefs()[0];
 
@@ -234,9 +236,93 @@ void CocoGen::writeNode( QTextStream& out, EbnfSyntax::Node* node, bool topLevel
     }
 }
 
+static void renderLaSub( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax* syn, int la )
+{
+    switch( ast->d_type )
+    {
+    case LaParser::Ast::Ident:
+    case LaParser::Ast::Literal:
+        out << "peek(" << la << ") == _" << "T_" << GenUtils::symToString(ast->d_val) << " ";
+        break;
+    case LaParser::Ast::Not:
+        out << "!( ";
+        renderLaSub(out,ast->d_subs.first().data(),syn,la);
+        out << ") ";
+        break;
+    case LaParser::Ast::Or:
+        if( ast->d_subs.size() > 1 )
+            out << "( ";
+        for( int i = 0; i < ast->d_subs.size(); i++ )
+        {
+             if( i != 0 )
+                 out << "|| ";
+             renderLaSub(out,ast->d_subs[i].data(),syn, la);
+        }
+        if( ast->d_subs.size() > 1 )
+            out << ") ";
+        break;
+    case LaParser::Ast::And:
+        for( int i = 0; i < ast->d_subs.size(); i++ )
+        {
+             if( i != 0 )
+                 out << "&& ";
+             renderLaSub(out,ast->d_subs[i].data(),syn,la);
+        }
+        break;
+    default:
+        Q_ASSERT( false );
+        break;
+    }
+}
+
+static void renderLaExpr( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax* syn )
+{
+    switch( ast->d_type )
+    {
+    case LaParser::Ast::La:
+        renderLaSub( out,ast->d_subs.first().data(),syn,ast->d_val.toInt() );
+        break;
+    case LaParser::Ast::Or:
+        if( ast->d_subs.size() > 1 )
+            out << "( ";
+        for( int i = 0; i < ast->d_subs.size(); i++ )
+        {
+             if( i != 0 )
+                 out << "|| ";
+             renderLaExpr(out,ast->d_subs[i].data(),syn);
+        }
+        if( ast->d_subs.size() > 1 )
+            out << ") ";
+        break;
+    case LaParser::Ast::And:
+        for( int i = 0; i < ast->d_subs.size(); i++ )
+        {
+             if( i != 0 )
+                 out << "&& ";
+             renderLaExpr(out,ast->d_subs[i].data(),syn);
+        }
+        break;
+    default:
+        Q_ASSERT( false );
+        break;
+    }
+}
+
 void CocoGen::handlePredicate(QTextStream& out,EbnfSyntax::Node* pred, EbnfSyntax::Node* sequence)
 {
-#if 1
+    const QByteArray la = pred->getLa();
+    if( !la.isEmpty() )
+    {
+        LaParser p;
+        if( !p.parse(la) )
+            return; // error was already reported
+
+        out << "IF( ";
+        renderLaExpr( out, p.getLaExpr().constData(), d_syn );
+        out << ") ";
+
+        return;
+    }
     const int ll = pred->getLlk();
     if( ll > 0 )
     {
@@ -267,21 +353,6 @@ void CocoGen::handlePredicate(QTextStream& out,EbnfSyntax::Node* pred, EbnfSynta
         out << ") ";
     }else
         qWarning() << "CocoGen unknown predicate" << sequence->d_tok.d_val.toStr();
-#endif
-#if 0
-    if( node->d_attr.startsWith("LA:") )
-    {
-        AttrParser p;
-        Syntax::Node* n = (Syntax::Node*)p.parse( node->d_attr.mid(3) );
-        if( n )
-        {
-            out << "IF( ";
-            writeAttrNode(out,n,1);
-            out << ") ";
-            delete n;
-        }
-    }
-#endif
 }
 
 QString CocoGen::tokenName(const QString& str)

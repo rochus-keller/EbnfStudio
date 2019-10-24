@@ -37,6 +37,7 @@ protected:
     QString tokenName(const QString& );
 private:
     FirstFollowSet* d_tbl;
+    EbnfSyntax* d_syn;
 };
 
 #endif // COCOGEN_H

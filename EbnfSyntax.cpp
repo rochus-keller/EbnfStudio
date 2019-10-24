@@ -19,6 +19,7 @@
 
 #include "EbnfSyntax.h"
 #include "EbnfErrors.h"
+#include "LaParser.h"
 #include <QTextStream>
 #include <QtDebug>
 
@@ -32,6 +33,14 @@ const char* EbnfSyntax::Node::s_typeName[] =
     "Alternative",
     "Predicate",
 };
+
+static bool error( EbnfErrors* errs, EbnfErrors::Source s,const EbnfToken& tok, const QString& msg )
+{
+    if( errs == 0 )
+        return true;
+    errs->error( s, tok.d_lineNr, tok.d_colNr, msg );
+    return false;
+}
 
 QString EbnfSyntax::pretty(const EbnfSyntax::NodeRefSet& s)
 {
@@ -133,8 +142,7 @@ bool EbnfSyntax::addDef(EbnfSyntax::Definition* d)
     d_finished = false;
     if( d_defs.contains( d->d_tok.d_val ) )
     {
-        if( d_errs )
-            d_errs->error( EbnfErrors::Semantics, d->d_tok.d_lineNr, d->d_tok.d_colNr,
+        error( d_errs, EbnfErrors::Semantics, d->d_tok,
                            QObject::tr("duplicate production '%1'").arg(d->d_tok.d_val.toStr()) );
         return false;
     }else
@@ -252,6 +260,7 @@ bool EbnfSyntax::finishSyntax()
     calculateNullable();
     calcLeftRecursion();
     checkPragmas();
+    checkPredicates();
     d_finished = true;
     return true;
 }
@@ -473,14 +482,13 @@ bool EbnfSyntax::resolveAllSymbols(EbnfSyntax::Node *node)
                 def->d_usedBy.insert(node);
                 node->d_def = def;
                 d_backRefs[node->d_tok.d_val].append(node);
-                if( d_errs && def->doIgnore() )
-                    d_errs->error( EbnfErrors::Semantics, node->d_tok.d_lineNr, node->d_tok.d_colNr,
+                if( def->doIgnore() )
+                    error( d_errs, EbnfErrors::Semantics, node->d_tok,
                                    QObject::tr("'%1' uses skipped '%2'").
                                         arg(node->d_owner->d_tok.d_val.toStr()).arg(def->d_tok.d_val.toStr()) );
             }else
             {
-                if( d_errs )
-                    d_errs->error( EbnfErrors::Semantics, node->d_tok.d_lineNr, node->d_tok.d_colNr,
+                error( d_errs, EbnfErrors::Semantics, node->d_tok,
                                    QObject::tr("'%1' references unknown '%2'").
                                         arg(node->d_owner->d_tok.d_val.toStr()).arg(node->d_tok.d_val.toStr()) );
             }
@@ -658,6 +666,8 @@ void EbnfSyntax::markLeftRecursion(EbnfSyntax::Definition* start, Node* cur, Ebn
 
 void EbnfSyntax::checkPragmas()
 {
+    if( d_errs == 0 )
+        return;
     foreach( const Definition* d, d_pragmas )
     {
         if( !isTerminalOrSeqOfTerminals( d->d_node ) )
@@ -709,6 +719,58 @@ EbnfSyntax::NodeRefSet EbnfSyntax::calcStartsWithNtSet(EbnfSyntax::Node* node)
         break;
     }
     return res;
+}
+
+void EbnfSyntax::checkPredicates()
+{
+    if( d_errs == 0 )
+        return;
+    foreach( const Definition* d, d_defs )
+    {
+        if( !d->doIgnore() && d->d_node != 0 )
+            checkPredicates(d->d_node);
+    }
+}
+
+static bool checkLaAst( EbnfSyntax* syn, LaParser::Ast* ast, const EbnfToken& tok )
+{
+    if( ast->d_type == LaParser::Ast::Ident )
+    {
+        const EbnfSyntax::Definition* d = syn->getDef(EbnfToken::getSym(ast->d_val));
+        if( d == 0 )
+            return error( syn->getErrs(), EbnfErrors::Semantics, tok,
+                          QString("unknown terminal '%1'").arg(ast->d_val.constData()) );
+        if( d->d_node != 0 )
+            return error( syn->getErrs(), EbnfErrors::Semantics, tok,
+                          QString("symbol '%1' is not a terminal").arg(ast->d_val.constData()) );
+        if( d->doIgnore() )
+            return error( syn->getErrs(), EbnfErrors::Semantics, tok,
+                          QString("referencing skipped terminal '%1'").arg(ast->d_val.constData()) );
+    }else
+    {
+        foreach( LaParser::AstRef sub, ast->d_subs )
+            checkLaAst( syn, sub.data(), tok );
+    }
+    return true;
+}
+
+void EbnfSyntax::checkPredicates(EbnfSyntax::Node* node)
+{
+    Q_ASSERT( node != 0 );
+    if( node->d_type == Node::Predicate )
+    {
+        const QByteArray la = node->getLa();
+        if( !la.isEmpty() )
+        {
+            LaParser p;
+            if( !p.parse(la) )
+                return; // error was already handled in EbnfParser;
+            Q_ASSERT( p.getLaExpr().constData() != 0 );
+            checkLaAst( this, p.getLaExpr().data(), node->d_tok );
+        }
+    }else
+        foreach( Node* sub, node->d_subs )
+            checkPredicates(sub);
 }
 
 bool EbnfSyntax::Definition::doIgnore() const
@@ -863,11 +925,16 @@ int EbnfSyntax::Node::getLlk() const
     const QByteArray val = d_tok.d_val;
     if( d_type != Predicate || !val.startsWith("LL:") )
         return 0;
-    const int ll = val.mid(3).toInt();
-    if( ll <= 1 )
-        return 0;
+    return val.mid(3).toUInt(); // validity was already checked in EbnfParser
+}
+
+QByteArray EbnfSyntax::Node::getLa() const
+{
+    const QByteArray val = d_tok.d_val;
+    if( val.startsWith("LA:") )
+        return val.mid(3);
     else
-        return ll;
+        return QByteArray();
 }
 
 void EbnfSyntax::Node::dump(int level) const

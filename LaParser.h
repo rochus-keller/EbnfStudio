@@ -19,7 +19,7 @@
 * http://www.gnu.org/copyleft/gpl.html.
 */
 
-#include <QByteArray>
+#include <QString>
 #include <QSharedData>
 
 class LaLexer
@@ -27,10 +27,12 @@ class LaLexer
 public:
     struct Tok
     {
-        enum { Invalid, Literal, Ident, Or, And, Not, LPar, RPar, Eof };
+        enum { Invalid, Literal, Ident, Or, And, Not, LPar, RPar, Colon, Index, Eof };
+        static const char* s_typeNames[];
         quint8 d_type;
         QByteArray d_val;
         Tok(quint8 t = Invalid, const QByteArray& v = QByteArray() ):d_type(t),d_val(v){}
+        bool isValid() const { return d_type != Invalid && d_type != Eof; }
     };
     LaLexer();
     void setStr( const QByteArray& );
@@ -41,6 +43,7 @@ protected:
     int skipWhiteSpace();
     Tok ident();
     Tok literal();
+    Tok index();
     Tok token( quint8 type, int len = 1, const QByteArray& v = QByteArray() );
 private:
     QByteArray d_str;
@@ -50,7 +53,9 @@ private:
 
 /* Syntax
  *
- * la_list ::= ( expression | empty ) { ':' ( expression | empty ) }
+ * la_expr ::= la_term { '|' la_term }
+ * la_term ::= la_factor { '&' la_factor }
+ * la_factor ::= Index ':' factor
  * expression ::= term { '|' term }
  * term ::= factor { '&' factor }
  * factor ::= String | Literal | '!' factor | '(' expression ')'
@@ -62,28 +67,32 @@ class LaParser
 public:
     struct Ast;
     typedef QExplicitlySharedDataPointer<Ast> AstRef;
-    typedef QList<AstRef> LaExpr;
     struct Ast : public QSharedData
     {
-        enum { Invalid, And, Or, Not, Ident, Literal };
+        enum { Invalid, And, Or, Not, Ident, Literal, La };
+        static const char* s_typeNames[];
         quint8 d_type;
         QByteArray d_val;
         QList<AstRef> d_subs;
         Ast( quint8 t = Invalid, const QByteArray& v = QByteArray() ):d_type(t),d_val(v) {}
+        void dump(int level = 0);
     };
 
     LaParser();
     bool parse(const QByteArray&);
-    const LaExpr& getLaExpr() const { return d_lax; }
-    const QByteArray& getErr() const { return d_err; }
+    AstRef getLaExpr() const { return d_res; }
+    const QString& getErr() const { return d_err; }
 protected:
     AstRef expression();
+    AstRef laExpr();
     AstRef term();
+    AstRef laTerm();
     AstRef factor();
+    AstRef laFactor();
 private:
     LaLexer d_lex;
-    QByteArray d_err;
-    LaExpr d_lax;
+    QString d_err;
+    AstRef d_res;
 };
 
 #endif // LAPARSER_H

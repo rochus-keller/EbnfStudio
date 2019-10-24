@@ -97,6 +97,7 @@ public:
         bool isAnyReachable() const;
         const Node* getNext(int* index = 0) const;
         int getLlk() const; // 0..invalid
+        QByteArray getLa() const;
         void dump(int level = 0) const;
         QString toString() const;
     };
@@ -126,6 +127,7 @@ public:
     ~EbnfSyntax();
 
     void clear();
+    EbnfErrors* getErrs() const { return d_errs; }
 
     typedef QHash<EbnfToken::Sym,Definition*> Definitions;
     typedef QList<Definition*> OrderedDefs;
@@ -167,6 +169,8 @@ protected:
     void markLeftRecursion( Definition*,Node* node, NodeList& );
     void checkPragmas();
     NodeRefSet calcStartsWithNtSet( Node* node );
+    void checkPredicates();
+    void checkPredicates(Node* node);
 
 private:
     Q_DISABLE_COPY(EbnfSyntax)
