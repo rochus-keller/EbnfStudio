@@ -50,7 +50,6 @@ protected:
     void handlePpSym(const EbnfToken&);
     bool txOn() const;
     void txlog(quint32 line, bool lastOn);
-    bool checkPred( const EbnfToken& );
 
 private:
     EbnfLexer* d_lex;

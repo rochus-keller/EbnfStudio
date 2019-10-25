@@ -74,6 +74,7 @@ bool EbnfParser::parse(EbnfLexer* lex)
     }
 
     d_syn->setDefines( d_defines );
+    d_syn->setKeywords(d_lex->getKeywords());
 
     if( t.isErr() )
         error( t );
@@ -262,8 +263,6 @@ EbnfSyntax::Node*EbnfParser::parseTerm()
     if( d_cur.d_type == EbnfToken::Predicate )
     {
         pred = d_cur;
-        if( !checkPred(pred) )
-            return 0;
         nextToken();
     }
 
@@ -424,26 +423,4 @@ void EbnfParser::txlog(quint32 line, bool lastOn )
     }
 }
 
-bool EbnfParser::checkPred(const EbnfToken& pred)
-{
-    const QByteArray val = pred.d_val.toBa();
-    if( val.startsWith("LL:") )
-    {
-        bool ok;
-        val.mid(3).toUInt(&ok);
-        if( !ok )
-            return error( pred, tr("invalid LL predicate") );
-        return true;
-    }else if( val.startsWith("LA:") )
-    {
-        LaParser p;
-        bool res = p.parse(val.mid(3));
-        if( p.getLaExpr().constData() )
-            p.getLaExpr()->dump();
-        if( !res )
-            return error( pred, tr("invalid LA predicate: %1").arg(p.getErr()) );
-        return true;
-    }else
-        return error( pred, tr("unknown predicate") );
-}
 

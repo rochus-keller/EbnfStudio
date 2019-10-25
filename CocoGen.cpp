@@ -241,6 +241,8 @@ static void renderLaSub( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax*
     switch( ast->d_type )
     {
     case LaParser::Ast::Ident:
+        out << "peek(" << la << ") == _" << "T_" << GenUtils::escapeDollars(ast->d_val) << " ";
+        break;
     case LaParser::Ast::Literal:
         out << "peek(" << la << ") == _" << "T_" << GenUtils::symToString(ast->d_val) << " ";
         break;
@@ -329,6 +331,8 @@ void CocoGen::handlePredicate(QTextStream& out,EbnfSyntax::Node* pred, EbnfSynta
         EbnfAnalyzer::LlkNodes llkNodes;
         EbnfAnalyzer::calcLlkFirstSet( ll, llkNodes,sequence, d_tbl );
         //EbnfAnalyzer::calcLlkFirstSet2( ll, llkNodes,sequence, d_tbl );
+        if( llkNodes.isEmpty() )
+            return;
         out << "IF( ";
         for( int i = 0; i < llkNodes.size(); i++ )
         {
@@ -341,12 +345,15 @@ void CocoGen::handlePredicate(QTextStream& out,EbnfSyntax::Node* pred, EbnfSynta
             for( j = llkNodes[i].begin(); j != llkNodes[i].end(); ++j )
                 names << tokenName( (*j).d_node->d_tok.d_val.toStr() );
             names.sort(Qt::CaseInsensitive);
-            for( int j = 0; j < names.size(); j++ )
-            {
-                if( j != 0 )
-                    out << "|| ";
-                out << "peek(" << i+1 << ") == _" << names[j] << " ";
-            }
+            if( names.isEmpty() )
+                out << "false ";
+            else
+                for( int j = 0; j < names.size(); j++ )
+                {
+                    if( j != 0 )
+                        out << "|| ";
+                    out << "peek(" << i+1 << ") == _" << names[j] << " ";
+                }
             if( llkNodes[i].size() > 1 )
                 out << ") ";
         }

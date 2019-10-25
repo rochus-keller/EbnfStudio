@@ -736,7 +736,10 @@ static bool checkLaAst( EbnfSyntax* syn, LaParser::Ast* ast, const EbnfToken& to
 {
     if( ast->d_type == LaParser::Ast::Ident )
     {
-        const EbnfSyntax::Definition* d = syn->getDef(EbnfToken::getSym(ast->d_val));
+        const EbnfToken::Sym sym = EbnfToken::getSym(ast->d_val);
+        if( syn->getKeywords().contains(sym) )
+            return true;
+        const EbnfSyntax::Definition* d = syn->getDef(sym);
         if( d == 0 )
             return error( syn->getErrs(), EbnfErrors::Semantics, tok,
                           QString("unknown terminal '%1'").arg(ast->d_val.constData()) );
@@ -759,15 +762,28 @@ void EbnfSyntax::checkPredicates(EbnfSyntax::Node* node)
     Q_ASSERT( node != 0 );
     if( node->d_type == Node::Predicate )
     {
-        const QByteArray la = node->getLa();
-        if( !la.isEmpty() )
+        const QByteArray val = node->d_tok.d_val.toBa();
+        if( val.startsWith("LL:") )
+        {
+            bool ok;
+            const quint32 p = val.mid(3).trimmed().toUInt(&ok);
+            if( !ok || p < 2 )
+                error( d_errs, EbnfErrors::Semantics, node->d_tok, "invalid LL predicate" );
+        }else if( val.startsWith("LA:") )
         {
             LaParser p;
-            if( !p.parse(la) )
-                return; // error was already handled in EbnfParser;
-            Q_ASSERT( p.getLaExpr().constData() != 0 );
-            checkLaAst( this, p.getLaExpr().data(), node->d_tok );
-        }
+            bool res = p.parse(val.mid(3));
+//            if( p.getLaExpr().constData() )
+//                p.getLaExpr()->dump();
+            if( !res )
+                error( d_errs, EbnfErrors::Syntax, node->d_tok, QString("invalid LA predicate: %1").arg(p.getErr()) );
+            else
+            {
+                Q_ASSERT( p.getLaExpr().constData() != 0 );
+                checkLaAst( this, p.getLaExpr().data(), node->d_tok );
+            }
+        }else
+            error( d_errs, EbnfErrors::Syntax, node->d_tok, "unknown predicate" );
     }else
         foreach( Node* sub, node->d_subs )
             checkPredicates(sub);
@@ -990,8 +1006,6 @@ QString EbnfSyntax::Node::toString() const
     }
     return QString();
 }
-
-
 
 bool EbnfSyntax::NodeRef::operator==(const EbnfSyntax::NodeRef& rhs) const
 {

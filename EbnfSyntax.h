@@ -38,6 +38,7 @@ public:
     typedef QSet<const EbnfSyntax::Node*> NodeSet;
     typedef QList<qint32> IfDefOutList; // Jeder Eintrag ist die Zeile der Änderung. Start bei On.
     typedef QSet<EbnfToken::Sym> Defines;
+    typedef QSet<EbnfToken::Sym> Keywords;
 
     struct Symbol
     {
@@ -145,6 +146,8 @@ public:
     const IfDefOutList& getIdol() const { return d_idol; }
     void setDefines( const Defines& d ) { d_defines = d; }
     const Defines& getDefines() const { return d_defines; }
+    void setKeywords( const Keywords& kw ) { d_kw = kw; }
+    const Keywords& getKeywords() const { return d_kw; }
 
     bool finishSyntax();
 
@@ -182,6 +185,7 @@ private:
     typedef QHash<EbnfToken::Sym,ConstNodeList> BackRefs;
     BackRefs d_backRefs;
     IfDefOutList d_idol;
+    Keywords d_kw;
     bool d_finished;
 };
 

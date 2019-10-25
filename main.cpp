@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     a.setOrganizationName("Rochus Keller");
     a.setOrganizationDomain("github.com/rochus-keller/EbnfStudio");
     a.setApplicationName("EbnfStudio");
-    a.setApplicationVersion("0.9.1");
+    a.setApplicationVersion("0.9.2");
 
     QIcon icon;
     icon.addFile( ":/images/icon_16.png" );
