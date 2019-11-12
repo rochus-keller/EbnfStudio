@@ -18,6 +18,8 @@ Follow these steps if you intend to build EbnfStudio:
 
 Alternatively you can open EbnfStudio.pro using QtCreator and build it there.
 
+NOTE: there seems to be an issue on x86-64 bit systems when optimization is on; if you encounter this issue please reduce optimization level.
+
 ## Support
 If you need support or would like to post issues or feature requests please use the Github issue list at https://github.com/rochus-keller/EbnfStudio/issues or send an email to the author.
 
