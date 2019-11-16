@@ -127,7 +127,7 @@ bool HtmlSyntax::reformat(const QTextDocument& doc, QTextStream& out)
     return true;
 }
 
-void HtmlSyntax::writeCompressedDefs(QTextStream& out, EbnfSyntax::Node* node, HtmlSyntax::Stack& stack, int level, bool all)
+void HtmlSyntax::writeCompressedDefs(QTextStream& out, Ast::Node* node, HtmlSyntax::Stack& stack, int level, bool all)
 {
     if( node == 0 )
         return;
@@ -139,31 +139,31 @@ void HtmlSyntax::writeCompressedDefs(QTextStream& out, EbnfSyntax::Node* node, H
 
     switch( node->d_quant )
     {
-    case EbnfSyntax::Node::One:
-        if( level > 0 && node->d_type == EbnfSyntax::Node::Alternative )
+    case Ast::Node::One:
+        if( level > 0 && node->d_type == Ast::Node::Alternative )
             out << "( ";
-        else if( level > 0 && node->d_type == EbnfSyntax::Node::Sequence && !node->d_tok.d_val.isEmpty() )
+        else if( level > 0 && node->d_type == Ast::Node::Sequence && !node->d_tok.d_val.isEmpty() )
             out << "( ";
         break;
-    case EbnfSyntax::Node::ZeroOrOne:
+    case Ast::Node::ZeroOrOne:
         out << "[ ";
         break;
-    case EbnfSyntax::Node::ZeroOrMore:
+    case Ast::Node::ZeroOrMore:
         out << "{ ";
         break;
     }
 
     switch( node->d_type )
     {
-    case EbnfSyntax::Node::Terminal:
+    case Ast::Node::Terminal:
         out << "<b>" << node->d_tok.d_val.toStr().toHtmlEscaped() << "</b> ";
         break;
-    case EbnfSyntax::Node::Nonterminal:
+    case Ast::Node::Nonterminal:
         if( node->d_def == 0 || node->d_def->d_node == 0 )
             out << node->d_tok.d_val.toStr().toHtmlEscaped() << " ";
         else
         {
-            const EbnfSyntax::Definition* ref = node->d_def;
+            const Ast::Definition* ref = node->d_def;
             Q_ASSERT( ref != 0 );
             const bool transp = node->d_tok.d_op == EbnfToken::Transparent ||
                     ref->d_tok.d_op == EbnfToken::Transparent;
@@ -190,7 +190,7 @@ void HtmlSyntax::writeCompressedDefs(QTextStream& out, EbnfSyntax::Node* node, H
             }
         }
         break;
-    case EbnfSyntax::Node::Alternative:
+    case Ast::Node::Alternative:
         for( int i = 0; i < node->d_subs.size(); i++ )
         {
             if( i != 0 )
@@ -203,7 +203,7 @@ void HtmlSyntax::writeCompressedDefs(QTextStream& out, EbnfSyntax::Node* node, H
             writeCompressedDefs( out, node->d_subs[i], stack, level + 1, all );
         }
         break;
-    case EbnfSyntax::Node::Sequence:
+    case Ast::Node::Sequence:
         for( int i = 0; i < node->d_subs.size(); i++ )
         {
             writeCompressedDefs( out, node->d_subs[i], stack, level + 1, all );
@@ -215,16 +215,16 @@ void HtmlSyntax::writeCompressedDefs(QTextStream& out, EbnfSyntax::Node* node, H
 
     switch( node->d_quant )
     {
-    case EbnfSyntax::Node::One:
-        if( level > 0 && node->d_type == EbnfSyntax::Node::Alternative )
+    case Ast::Node::One:
+        if( level > 0 && node->d_type == Ast::Node::Alternative )
             out << ") ";
-        else if( level > 0 && node->d_type == EbnfSyntax::Node::Sequence && !node->d_tok.d_val.isEmpty() )
+        else if( level > 0 && node->d_type == Ast::Node::Sequence && !node->d_tok.d_val.isEmpty() )
             out << ") ";
         break;
-    case EbnfSyntax::Node::ZeroOrOne:
+    case Ast::Node::ZeroOrOne:
         out << "] ";
         break;
-    case EbnfSyntax::Node::ZeroOrMore:
+    case Ast::Node::ZeroOrMore:
         out << "} ";
         break;
     }
@@ -255,7 +255,7 @@ bool HtmlSyntax::generateHtml(const QString& ebnfPath, EbnfSyntax* syn, bool all
 
     for( int i = 0; i < syn->getOrderedDefs().size(); i++ )
     {
-        const EbnfSyntax::Definition* d = syn->getOrderedDefs()[i];
+        const Ast::Definition* d = syn->getOrderedDefs()[i];
 
         if( d->d_tok.d_op == EbnfToken::Skip || ( i != 0 && d->d_usedBy.isEmpty() ) )
             continue;

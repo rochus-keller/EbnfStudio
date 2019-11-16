@@ -43,10 +43,10 @@ public:
 protected:
     EbnfToken nextToken();
     bool error( const EbnfToken& t, const QString& msg = QString() );
-    EbnfSyntax::Node* parseFactor();
-    EbnfSyntax::Node* parseExpression();
-    EbnfSyntax::Node* parseTerm();
-    bool checkCardinality(EbnfSyntax::Node*);
+    Ast::Node* parseFactor();
+    Ast::Node* parseExpression();
+    Ast::Node* parseTerm();
+    bool checkCardinality(Ast::Node*);
     void handlePpSym(const EbnfToken&);
     bool txOn() const;
     void txlog(quint32 line, bool lastOn);
@@ -54,7 +54,7 @@ protected:
 private:
     EbnfLexer* d_lex;
     EbnfSyntaxRef d_syn;
-    EbnfSyntax::Definition* d_def;
+    Ast::Definition* d_def;
     EbnfToken d_cur;
     EbnfErrors* d_errs;
     EbnfSyntax::Defines d_defines;

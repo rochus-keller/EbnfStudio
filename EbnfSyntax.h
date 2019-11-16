@@ -29,16 +29,12 @@
 
 class EbnfErrors;
 
-class EbnfSyntax : public QSharedData
+namespace Ast
 {
-public:
     struct Node;
     typedef QList<Node*> NodeList;
     typedef QList<const Node*> ConstNodeList;
-    typedef QSet<const EbnfSyntax::Node*> NodeSet;
-    typedef QList<qint32> IfDefOutList; // Jeder Eintrag ist die Zeile der Änderung. Start bei On.
-    typedef QSet<EbnfToken::Sym> Defines;
-    typedef QSet<EbnfToken::Sym> Keywords;
+    typedef QSet<const Node*> NodeSet;
 
     struct Symbol
     {
@@ -62,7 +58,7 @@ public:
         bool d_notReachable;
         Definition(const EbnfToken& tok):Symbol(tok),d_node(0),d_nullable(false),d_repeatable(false),
             d_directLeftRecursive(false),d_indirectLeftRecursive(false),d_notReachable(false){}
-        ~Definition() { if( d_node ) delete d_node; }
+        ~Definition();
         bool doIgnore() const;
         bool isNullable() const { return d_nullable; }
         bool isRepeatable() const { return d_repeatable; }
@@ -74,13 +70,13 @@ public:
         enum Type { Terminal, Nonterminal, Sequence, Alternative, Predicate };
         enum Quantity { One, ZeroOrOne, ZeroOrMore };
         static const char* s_typeName[];
-#ifdef _DEBUG
+    #ifdef _DEBUG
         Type d_type;
         Quantity d_quant;
-#else
+    #else
         quint8 d_type;
         quint8 d_quant;
-#endif
+    #endif
         bool d_leftRecursive;
         NodeList d_subs; // owned
         NodeList d_pathToDef;
@@ -106,21 +102,32 @@ public:
 
     struct NodeRef
     {
-        const EbnfSyntax::Node* d_node;
-        NodeRef( const EbnfSyntax::Node* node = 0 ):d_node(node){}
+        const Node* d_node;
+        NodeRef( const Node* node = 0 ):d_node(node){}
         bool operator==( const NodeRef& ) const;
-        const EbnfSyntax::Node* operator*() const { return d_node; }
+        const Node* operator*() const { return d_node; }
     };
     typedef QSet<NodeRef> NodeRefSet;
     typedef QList<NodeRef> NodeRefList;
 
+    // NOTE: weil alle Symbole denselben String verwenden auf Adresse als Hash wechseln
+    inline uint qHash(const NodeRef& r ) { return r.d_node ? qHash(r.d_node->d_tok.d_val) : 0; }
+}
+
+class EbnfSyntax : public QSharedData
+{
+public:
+    typedef QList<qint32> IfDefOutList; // Jeder Eintrag ist die Zeile der Änderung. Start bei On.
+    typedef QSet<EbnfToken::Sym> Defines;
+    typedef QSet<EbnfToken::Sym> Keywords;
+
     struct IssueData
     {
         enum Type { None, AmbigAlt, AmbigOpt, BadPred, LeftRec, DetailItem } d_type;
-        const Node* d_ref;
-        const Node* d_other;
-        ConstNodeList d_list;
-        IssueData(Type t = None, const Node* r = 0, const Node* oth = 0, const ConstNodeList& l = ConstNodeList()):
+        const Ast::Node* d_ref;
+        const Ast::Node* d_other;
+        Ast::ConstNodeList d_list;
+        IssueData(Type t = None, const Ast::Node* r = 0, const Ast::Node* oth = 0, const Ast::ConstNodeList& l = Ast::ConstNodeList()):
             d_type(t), d_ref(r),d_other(oth),d_list(l){}
     };
 
@@ -130,14 +137,14 @@ public:
     void clear();
     EbnfErrors* getErrs() const { return d_errs; }
 
-    typedef QHash<EbnfToken::Sym,Definition*> Definitions;
-    typedef QList<Definition*> OrderedDefs;
+    typedef QHash<EbnfToken::Sym,Ast::Definition*> Definitions;
+    typedef QList<Ast::Definition*> OrderedDefs;
     typedef QList<EbnfToken::Sym> SymList;
 
-    bool addDef( Definition* ); // transfer ownership
-    bool addPragma(const EbnfToken& name, Node* ); // transfer ownership
+    bool addDef( Ast::Definition* ); // transfer ownership
+    bool addPragma(const EbnfToken& name, Ast::Node* ); // transfer ownership
     const Definitions& getDefs() const { return d_defs; }
-    const Definition* getDef(const EbnfToken::Sym& name ) const;
+    const Ast::Definition* getDef(const EbnfToken::Sym& name ) const;
     const OrderedDefs& getOrderedDefs() const { return d_order; }
     const Definitions& getPragmas() const { return d_pragmas; }
     SymList getPragma(const QByteArray& name ) const;
@@ -151,29 +158,29 @@ public:
 
     bool finishSyntax();
 
-    const Symbol* findSymbolBySourcePos( quint32 line, quint16 col , bool nonTermOnly = true ) const;
-    ConstNodeList getBackRefs( const Symbol* ) const;
-    static const Node* firstVisibleElementOf( const Node* );
-    static const Node* firstPredicateOf( const Node* );
+    const Ast::Symbol* findSymbolBySourcePos( quint32 line, quint16 col , bool nonTermOnly = true ) const;
+    Ast::ConstNodeList getBackRefs( const Ast::Symbol* ) const;
+    static const Ast::Node* firstVisibleElementOf( const Ast::Node* );
+    static const Ast::Node* firstPredicateOf( const Ast::Node* );
 
-    static QString pretty( const NodeRefSet& );
-    static QString pretty( const NodeSet& );
-    static NodeRefSet nodeToRefSet( const NodeSet& );
-    static NodeSet collectNodes( const NodeRefSet& pattern, const NodeSet& set );
+    static QString pretty( const Ast::NodeRefSet& );
+    static QString pretty( const Ast::NodeSet& );
+    static Ast::NodeRefSet nodeToRefSet( const Ast::NodeSet& );
+    static Ast::NodeSet collectNodes( const Ast::NodeRefSet& pattern, const Ast::NodeSet& set );
 
     void dump() const;
 protected:
     bool resolveAllSymbols();
     void calculateNullable();
     void checkReachability();
-    bool resolveAllSymbols( Node *node );
-    const Symbol* findSymbolBySourcePosImp( const Node*, quint32 line, quint16 col, bool nonTermOnly ) const;
+    bool resolveAllSymbols( Ast::Node *node );
+    const Ast::Symbol* findSymbolBySourcePosImp( const Ast::Node*, quint32 line, quint16 col, bool nonTermOnly ) const;
     void calcLeftRecursion();
-    void markLeftRecursion( Definition*,Node* node, NodeList& );
+    void markLeftRecursion( Ast::Definition*,Ast::Node* node, Ast::NodeList& );
     void checkPragmas();
-    NodeRefSet calcStartsWithNtSet( Node* node );
+    Ast::NodeRefSet calcStartsWithNtSet( Ast::Node* node );
     void checkPredicates();
-    void checkPredicates(Node* node);
+    void checkPredicates(Ast::Node* node);
 
 private:
     Q_DISABLE_COPY(EbnfSyntax)
@@ -182,7 +189,7 @@ private:
     OrderedDefs d_order;
     Definitions d_pragmas;
     Defines d_defines;
-    typedef QHash<EbnfToken::Sym,ConstNodeList> BackRefs;
+    typedef QHash<EbnfToken::Sym,Ast::ConstNodeList> BackRefs;
     BackRefs d_backRefs;
     IfDefOutList d_idol;
     Keywords d_kw;
@@ -190,9 +197,7 @@ private:
 };
 
 typedef QExplicitlySharedDataPointer<EbnfSyntax> EbnfSyntaxRef;
-//inline uint qHash(const EbnfSyntax::NodeRef& r ) { return r.d_node ? qHash(r.d_node->d_tok.d_val) : 0; }
-// NOTE: weil alle Symbole denselben String verwenden auf Adresse als Hash wechseln
-inline uint qHash(const EbnfSyntax::NodeRef& r ) { return r.d_node ? qHash(r.d_node->d_tok.d_val) : 0; }
+
 
 Q_DECLARE_METATYPE(EbnfSyntax::IssueData)
 

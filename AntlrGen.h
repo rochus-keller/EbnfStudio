@@ -30,7 +30,7 @@ class AntlrGen
 public:
     static bool generate(const QString& atgPath, EbnfSyntax*);
 protected:
-    static void writeNode( QTextStream& out, EbnfSyntax::Node* node, bool topLevel );
+    static void writeNode( QTextStream& out, Ast::Node* node, bool topLevel );
     static QString tokenName(const QString& );
     static QString ruleName(const QString& );
 private:

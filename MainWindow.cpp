@@ -159,7 +159,7 @@ void MainWindow::onErrorsDblClicked()
         EbnfSyntax::IssueData d = item->data(0,Qt::UserRole+1).value<EbnfSyntax::IssueData>();
         if( d.d_type )
         {
-            foreach( const EbnfSyntax::Node* r, d.d_list )
+            foreach( const Ast::Node* r, d.d_list )
             {
                 QTreeWidgetItem* i = new QTreeWidgetItem(d_errDetails);
                 i->setText( 0, r->d_tok.d_val.toStr() );
@@ -168,7 +168,7 @@ void MainWindow::onErrorsDblClicked()
                 i->setData(0,Qt::UserRole, QPoint(r->d_tok.d_colNr,r->d_tok.d_lineNr) );
                 i->setData(1, Qt::UserRole, QVariant::fromValue(EbnfSyntax::IssueData(
                                       EbnfSyntax::IssueData::DetailItem,d.d_other,r,
-                                                                    EbnfSyntax::ConstNodeList() << d.d_ref )));
+                                                                    Ast::ConstNodeList() << d.d_ref )));
             }
             if( d.d_type != EbnfSyntax::IssueData::LeftRec )
                 d_errDetails->sortItems(0,Qt::AscendingOrder);
@@ -177,7 +177,7 @@ void MainWindow::onErrorsDblClicked()
     }
 }
 
-static bool UsedByLessThan( const EbnfSyntax::Node* lhs, const EbnfSyntax::Node* rhs )
+static bool UsedByLessThan( const Ast::Node* lhs, const Ast::Node* rhs )
 {
     return lhs->d_tok.d_lineNr < rhs->d_tok.d_lineNr ||
             (!(rhs->d_tok.d_lineNr < lhs->d_tok.d_lineNr) &&
@@ -209,17 +209,17 @@ void MainWindow::onCursorChanged()
     {
         d_mdl->getParent()->setCurrentIndex(index);
         d_mdl->getParent()->scrollTo(index,QAbstractItemView::PositionAtCenter);
-        const EbnfSyntax::Symbol* sym = d_mdl->getSymbol(index);
+        const Ast::Symbol* sym = d_mdl->getSymbol(index);
         d_usedBy->clear();
         if( sym )
         {
 #if 1
-            EbnfSyntax::ConstNodeList backrefs = d_edit->getSyntax()->getBackRefs(sym);
+            Ast::ConstNodeList backrefs = d_edit->getSyntax()->getBackRefs(sym);
             std::sort( backrefs.begin(), backrefs.end(), UsedByLessThan );
             EbnfEditor::SymList syms;
-            foreach( const EbnfSyntax::NodeRef& r, backrefs )
+            foreach( const Ast::NodeRef& r, backrefs )
             {
-                const EbnfSyntax::Node* n = r.d_node;
+                const Ast::Node* n = r.d_node;
                 syms << n;
                 QTreeWidgetItem* i = new QTreeWidgetItem(d_usedBy);
                 i->setText( 0, QString("%1 (%2:%3)").arg(n->d_owner->d_tok.d_val.toStr())
@@ -244,14 +244,14 @@ void MainWindow::onCursorChanged()
                 d_edit->clearNonTerms();
 
 #else
-            const EbnfSyntax::Definition* d = 0;
+            const Ast::Definition* d = 0;
             if( sym->d_tok.d_type == EbnfToken::Production )
-                d = static_cast<const EbnfSyntax::Definition*>( sym );
+                d = static_cast<const Ast::Definition*>( sym );
             else if( sym->d_tok.d_type == EbnfToken::NonTerm )
-                d = static_cast<const EbnfSyntax::Node*>( sym )->d_def;
+                d = static_cast<const Ast::Node*>( sym )->d_def;
             if( d )
             {
-                foreach( const EbnfSyntax::Node* n, d->d_usedBy )
+                foreach( const Ast::Node* n, d->d_usedBy )
                 {
                     QTreeWidgetItem* i = new QTreeWidgetItem(d_usedBy);
                     i->setText( 0, QString("%1 (%2:%3)").arg(n->d_owner->d_tok.d_val.toStr())
@@ -260,7 +260,7 @@ void MainWindow::onCursorChanged()
                 }
                 d_usedBy->sortByColumn(0);
                 EbnfEditor::NodeList l;
-                foreach( const EbnfSyntax::NodeRef& r, d->d_usedBy )
+                foreach( const Ast::NodeRef& r, d->d_usedBy )
                     l << r.d_node;
                 d_edit->markNonTerms( l );
             }else
@@ -367,7 +367,7 @@ void MainWindow::onSyntaxUpdated()
 
 void MainWindow::onTreeDblClicked()
 {
-    const EbnfSyntax::Symbol* sym = d_mdl->getSymbol( d_mdl->getParent()->currentIndex() );
+    const Ast::Symbol* sym = d_mdl->getSymbol( d_mdl->getParent()->currentIndex() );
     if( sym && sym->d_tok.d_type != EbnfToken::Invalid )
     {
         const bool blocked = d_edit->blockSignals(true);
@@ -462,7 +462,7 @@ void MainWindow::onOutputFirstSet()
     d_tbl->setSyntax( d_edit->getSyntax() );
     for( int i = 0; i < d_edit->getSyntax()->getOrderedDefs().size(); i++ )
     {
-        const EbnfSyntax::Definition* d = d_edit->getSyntax()->getOrderedDefs()[i];
+        const Ast::Definition* d = d_edit->getSyntax()->getOrderedDefs()[i];
         if( d->doIgnore() || ( i != 0 && d->d_usedBy.isEmpty() ) )
             continue;
         if( d->d_node == 0 )
@@ -470,11 +470,11 @@ void MainWindow::onOutputFirstSet()
 
         out << GenUtils::escapeDollars(d->d_tok.d_val.toStr()) << endl;
 //        out << "first: ";
-//        EbnfSyntax::NodeSet ns = d_tbl->getFirstSet(1, d );
+//        Ast::NodeSet ns = d_tbl->getFirstSet(1, d );
         out << "follow: ";
-        EbnfSyntax::NodeRefSet ns = d_tbl->getFollowSet( d );
+        Ast::NodeRefSet ns = d_tbl->getFollowSet( d );
         QStringList l;
-        for( EbnfSyntax::NodeRefSet::const_iterator j = ns.begin(); j != ns.end(); ++j )
+        for( Ast::NodeRefSet::const_iterator j = ns.begin(); j != ns.end(); ++j )
             l << GenUtils::symToString( (*j).d_node->d_tok.d_val.toStr() );
         qSort(l);
         foreach( const QString& a, l )
@@ -553,11 +553,11 @@ void MainWindow::onDetailsDblClicked()
         if( d.d_type )
         {
             d_pathView->clear();
-            EbnfSyntax::ConstNodeList l = EbnfAnalyzer::findPath( d.d_ref, d.d_other );
+            Ast::ConstNodeList l = EbnfAnalyzer::findPath( d.d_ref, d.d_other );
             l = d.d_list + l;
-            foreach( const EbnfSyntax::Node* r, l )
+            foreach( const Ast::Node* r, l )
             {
-                if( r->d_type != EbnfSyntax::Node::Terminal && r->d_type != EbnfSyntax::Node::Nonterminal )
+                if( r->d_type != Ast::Node::Terminal && r->d_type != Ast::Node::Nonterminal )
                     continue;
                 QTreeWidgetItem* i = new QTreeWidgetItem(d_pathView);
                 i->setText( 0, r->toString() );

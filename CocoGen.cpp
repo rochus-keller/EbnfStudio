@@ -52,7 +52,7 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
     d_tbl = tbl;
     d_syn = syn;
 
-    const EbnfSyntax::Definition* root = syn->getOrderedDefs()[0];
+    const Ast::Definition* root = syn->getOrderedDefs()[0];
 
     QFile f(atgPath);
     f.open( QIODevice::WriteOnly );
@@ -111,7 +111,7 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
     // Fall i=0
     if( !syn->getOrderedDefs().isEmpty() )
     {
-        const EbnfSyntax::Definition* d = syn->getOrderedDefs().first();
+        const Ast::Definition* d = syn->getOrderedDefs().first();
         out << GenUtils::escapeDollars( d->d_tok.d_val.toStr() ) << " = " << endl << "    ";
         if( buildAst )
             out << "(. d_stack.push(&d_root); .) (";
@@ -124,7 +124,7 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
     // Fall i>0
     for( int i = 1; i < syn->getOrderedDefs().size(); i++ )
     {
-        const EbnfSyntax::Definition* d = syn->getOrderedDefs()[i];
+        const Ast::Definition* d = syn->getOrderedDefs()[i];
 
         if( d->d_tok.d_op == EbnfToken::Skip || ( i != 0 && d->d_usedBy.isEmpty() ) )
             continue;
@@ -150,7 +150,7 @@ bool CocoGen::generate(const QString& atgPath, EbnfSyntax* syn, FirstFollowSet* 
     return true;
 }
 
-void CocoGen::writeNode( QTextStream& out, EbnfSyntax::Node* node, bool topLevel, bool buildAst )
+void CocoGen::writeNode( QTextStream& out, Ast::Node* node, bool topLevel, bool buildAst )
 {
     if( node == 0 )
         return;
@@ -162,28 +162,28 @@ void CocoGen::writeNode( QTextStream& out, EbnfSyntax::Node* node, bool topLevel
 
     switch( node->d_quant )
     {
-    case EbnfSyntax::Node::One:
-        if( !topLevel && node->d_type == EbnfSyntax::Node::Alternative )
+    case Ast::Node::One:
+        if( !topLevel && node->d_type == Ast::Node::Alternative )
             out << "( ";
-        else if( !topLevel && node->d_type == EbnfSyntax::Node::Sequence && !node->d_tok.d_val.isEmpty() )
+        else if( !topLevel && node->d_type == Ast::Node::Sequence && !node->d_tok.d_val.isEmpty() )
             out << "( ";
         break;
-    case EbnfSyntax::Node::ZeroOrOne:
+    case Ast::Node::ZeroOrOne:
         out << "[ ";
         break;
-    case EbnfSyntax::Node::ZeroOrMore:
+    case Ast::Node::ZeroOrMore:
         out << "{ ";
         break;
     }
 
     switch( node->d_type )
     {
-    case EbnfSyntax::Node::Terminal:
+    case Ast::Node::Terminal:
         out << tokenName( node->d_tok.d_val.toStr() ) << " ";
         if( buildAst )
             out << "(. addTerminal(); .) ";
         break;
-    case EbnfSyntax::Node::Nonterminal:
+    case Ast::Node::Nonterminal:
         if( node->d_def == 0 || node->d_def->d_node == 0 )
         {
             // pseudoterminal
@@ -193,7 +193,7 @@ void CocoGen::writeNode( QTextStream& out, EbnfSyntax::Node* node, bool topLevel
         }else
             out << GenUtils::escapeDollars(node->d_tok.d_val.toStr()) << " ";
         break;
-    case EbnfSyntax::Node::Alternative:
+    case Ast::Node::Alternative:
         for( int i = 0; i < node->d_subs.size(); i++ )
         {
             if( i != 0 )
@@ -206,31 +206,31 @@ void CocoGen::writeNode( QTextStream& out, EbnfSyntax::Node* node, bool topLevel
             writeNode( out, node->d_subs[i], false, buildAst );
         }
         break;
-    case EbnfSyntax::Node::Sequence:
+    case Ast::Node::Sequence:
         for( int i = 0; i < node->d_subs.size(); i++ )
         {
-            if( node->d_subs[i]->d_type == EbnfSyntax::Node::Predicate )
+            if( node->d_subs[i]->d_type == Ast::Node::Predicate )
                 handlePredicate( out, node->d_subs[i], node );
             else
                 writeNode( out, node->d_subs[i], false, buildAst );
         }
         break;
-    case EbnfSyntax::Node::Predicate:
-        qWarning() << "Coco::writeNode: EbnfSyntax::Node::Predicate";
+    case Ast::Node::Predicate:
+        qWarning() << "Coco::writeNode: Ast::Node::Predicate";
         break;
     }
     switch( node->d_quant )
     {
-    case EbnfSyntax::Node::One:
-        if( !topLevel && node->d_type == EbnfSyntax::Node::Alternative )
+    case Ast::Node::One:
+        if( !topLevel && node->d_type == Ast::Node::Alternative )
             out << ") ";
-        else if( !topLevel && node->d_type == EbnfSyntax::Node::Sequence && !node->d_tok.d_val.isEmpty() )
+        else if( !topLevel && node->d_type == Ast::Node::Sequence && !node->d_tok.d_val.isEmpty() )
             out << ") ";
         break;
-    case EbnfSyntax::Node::ZeroOrOne:
+    case Ast::Node::ZeroOrOne:
         out << "] ";
         break;
-    case EbnfSyntax::Node::ZeroOrMore:
+    case Ast::Node::ZeroOrMore:
         out << "} ";
         break;
     }
@@ -310,7 +310,7 @@ static void renderLaExpr( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax
     }
 }
 
-void CocoGen::handlePredicate(QTextStream& out,EbnfSyntax::Node* pred, EbnfSyntax::Node* sequence)
+void CocoGen::handlePredicate(QTextStream& out,Ast::Node* pred, Ast::Node* sequence)
 {
     const QByteArray la = pred->getLa();
     if( !la.isEmpty() )
@@ -341,7 +341,7 @@ void CocoGen::handlePredicate(QTextStream& out,EbnfSyntax::Node* pred, EbnfSynta
             if( llkNodes[i].size() > 1 )
                 out << "( ";
             QStringList names;
-            EbnfSyntax::NodeRefSet::const_iterator j;
+            Ast::NodeRefSet::const_iterator j;
             for( j = llkNodes[i].begin(); j != llkNodes[i].end(); ++j )
                 names << tokenName( (*j).d_node->d_tok.d_val.toStr() );
             names.sort(Qt::CaseInsensitive);

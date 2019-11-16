@@ -47,7 +47,7 @@ public:
     bool hasSelection() const;
     QString selectedText() const;
 
-    typedef QList<const EbnfSyntax::Symbol*> SymList;
+    typedef QList<const Ast::Symbol*> SymList;
     void markNonTerms(const SymList& );
     void updateExtraSelections();
 

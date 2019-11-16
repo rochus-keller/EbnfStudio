@@ -33,26 +33,26 @@ public:
     static QSet<QString> collectAllTerminalStrings( EbnfSyntax* );
     static QStringList collectAllTerminalProductions( EbnfSyntax* );
 
-    typedef QList<EbnfSyntax::NodeRefSet> LlkNodes;
-    static EbnfSyntax::NodeRefSet intersectAll( const LlkNodes& lhs, const LlkNodes& rhs );
-    static void calcLlkFirstSet(quint16 k, LlkNodes&, const EbnfSyntax::Node* node, FirstFollowSet* );
-    static void calcLlkFirstSet2(quint16 k, LlkNodes&, const EbnfSyntax::Node* node, FirstFollowSet* );
+    typedef QList<Ast::NodeRefSet> LlkNodes;
+    static Ast::NodeRefSet intersectAll( const LlkNodes& lhs, const LlkNodes& rhs );
+    static void calcLlkFirstSet(quint16 k, LlkNodes&, const Ast::Node* node, FirstFollowSet* );
+    static void calcLlkFirstSet2(quint16 k, LlkNodes&, const Ast::Node* node, FirstFollowSet* );
 
     static void checkForAmbiguity( FirstFollowSet*, EbnfErrors*);
-    static void checkForAmbiguity( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors*, bool recursive = true );
+    static void checkForAmbiguity( Ast::Node*, FirstFollowSet*, EbnfErrors*, bool recursive = true );
 
-    static EbnfSyntax::ConstNodeList findPath( const EbnfSyntax::Node* from, const EbnfSyntax::Node* to );
+    static Ast::ConstNodeList findPath( const Ast::Node* from, const Ast::Node* to );
 protected:
-    static QSet<QString> collectAllTerminalStrings( EbnfSyntax::Node* );
-    static void findAmbiguousAlternatives( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors* );
-    static void findAmbiguousOptionals( EbnfSyntax::Node*, FirstFollowSet*, EbnfErrors* );
-    static void reportAmbig(EbnfSyntax::Node* seq, int ambigIdx, const EbnfSyntax::NodeRefSet& diff, const EbnfSyntax::NodeSet& ambigSet2, FirstFollowSet*, EbnfErrors* );
-    typedef QSet<const EbnfSyntax::Node*> CheckSet;
-    static void calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNodes&, const EbnfSyntax::Node* node,
+    static QSet<QString> collectAllTerminalStrings( Ast::Node* );
+    static void findAmbiguousAlternatives( Ast::Node*, FirstFollowSet*, EbnfErrors* );
+    static void findAmbiguousOptionals( Ast::Node*, FirstFollowSet*, EbnfErrors* );
+    static void reportAmbig(Ast::Node* seq, int ambigIdx, const Ast::NodeRefSet& diff, const Ast::NodeSet& ambigSet2, FirstFollowSet*, EbnfErrors* );
+    typedef QSet<const Ast::Node*> CheckSet;
+    static void calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNodes&, const Ast::Node* node,
                                     FirstFollowSet*, CheckSet& visited );
     static quint16 calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes&,
-                                const EbnfSyntax::Node* node, FirstFollowSet*, int level );
-    static bool findPath( EbnfSyntax::ConstNodeList& path, const EbnfSyntax::Node* to );
+                                const Ast::Node* node, FirstFollowSet*, int level );
+    static bool findPath( Ast::ConstNodeList& path, const Ast::Node* to );
 };
 
 #endif // EBNFANALYZER_H

@@ -55,7 +55,7 @@ void EbnfEditor::markNonTerms(const SymList& syms)
     d_nonTerms.clear();
     QTextCharFormat format;
     format.setBackground( QColor(247,245,243) );
-    foreach( const EbnfSyntax::Symbol* s, syms )
+    foreach( const Ast::Symbol* s, syms )
     {
         if( s == 0 )
             continue;
@@ -76,7 +76,7 @@ void EbnfEditor::updateExtraSelections()
 {
     ESL sum;
 
-    if( d_syn != 0 && !d_syn->getIdol().isEmpty() )
+    if( d_syn.constData() != 0 && !d_syn->getIdol().isEmpty() )
     {
         bool on = true;
         quint32 startLine = 1;
@@ -149,10 +149,10 @@ void EbnfEditor::mousePressEvent(QMouseEvent* e)
     }else if( QApplication::keyboardModifiers() == Qt::ControlModifier )
     {
         QTextCursor cur = cursorForPosition(e->pos());
-        const EbnfSyntax::Symbol* sym = d_syn->findSymbolBySourcePos(cur.blockNumber() + 1,cur.positionInBlock() + 1);
+        const Ast::Symbol* sym = d_syn->findSymbolBySourcePos(cur.blockNumber() + 1,cur.positionInBlock() + 1);
         if( sym )
         {
-            const EbnfSyntax::Definition* d = d_syn->getDef( sym->d_tok.d_val );
+            const Ast::Definition* d = d_syn->getDef( sym->d_tok.d_val );
             if( d )
             {
                 pushLocation( Location( cur.blockNumber(), cur.positionInBlock() ) );
@@ -169,7 +169,7 @@ void EbnfEditor::mouseMoveEvent(QMouseEvent* e)
     if( QApplication::keyboardModifiers() == Qt::ControlModifier && d_syn.constData() )
     {
         QTextCursor cur = cursorForPosition(e->pos());
-        const EbnfSyntax::Symbol* sym = d_syn->findSymbolBySourcePos(cur.blockNumber() + 1, cur.positionInBlock() + 1);
+        const Ast::Symbol* sym = d_syn->findSymbolBySourcePos(cur.blockNumber() + 1, cur.positionInBlock() + 1);
         const bool alreadyArrow = !d_link.isEmpty();
         d_link.clear();
         if( sym )
@@ -178,7 +178,7 @@ void EbnfEditor::mouseMoveEvent(QMouseEvent* e)
             const int off = cur.positionInBlock() + 1 - sym->d_tok.d_colNr;
             cur.setPosition(cur.position() - off);
             cur.setPosition( cur.position() + sym->d_tok.d_len, QTextCursor::KeepAnchor );
-            const EbnfSyntax::Definition* d = d_syn->getDef( sym->d_tok.d_val );
+            const Ast::Definition* d = d_syn->getDef( sym->d_tok.d_val );
 
             if( d )
             {

@@ -43,7 +43,7 @@ void SyntaxTreeMdl::setSyntax( EbnfSyntax* syn )
     endResetModel();
 }
 
-const EbnfSyntax::Symbol* SyntaxTreeMdl::getSymbol(const QModelIndex& index) const
+const Ast::Symbol* SyntaxTreeMdl::getSymbol(const QModelIndex& index) const
 {
     if( !index.isValid() || d_syn.constData() == 0 )
         return 0;
@@ -61,17 +61,17 @@ static inline QString _quant( quint8 q, const QString& txt, bool nullable = fals
 {
     switch( q )
     {
-    case EbnfSyntax::Node::One:
+    case Ast::Node::One:
         if( repeatable )
             return QString("{ %1").arg(txt);
         else if( nullable )
             return QString("[ %1").arg(txt);
         else
             return txt;
-    case EbnfSyntax::Node::ZeroOrOne:
+    case Ast::Node::ZeroOrOne:
         return QString("[ %1 ]").arg(txt);
         break;
-    case EbnfSyntax::Node::ZeroOrMore:
+    case Ast::Node::ZeroOrMore:
         return QString("{ %1 }").arg(txt);
     default:
         return "<unknown quantifier>";
@@ -90,15 +90,15 @@ QVariant SyntaxTreeMdl::data(const QModelIndex& index, int role) const
     case Qt::DisplayRole:
         if( s->d_sym->d_tok.d_type != EbnfToken::Production )
         {
-            const EbnfSyntax::Node* node = static_cast<const EbnfSyntax::Node*>( s->d_sym );
+            const Ast::Node* node = static_cast<const Ast::Node*>( s->d_sym );
             switch( node->d_type )
             {
-            case EbnfSyntax::Node::Terminal:
-            case EbnfSyntax::Node::Nonterminal:
+            case Ast::Node::Terminal:
+            case Ast::Node::Nonterminal:
                 return _quant( node->d_quant, node->d_tok.d_val.toStr(), node->isNullable(), node->isRepeatable() );
-            case EbnfSyntax::Node::Sequence:
+            case Ast::Node::Sequence:
                 return _quant( node->d_quant, "seq" );
-            case EbnfSyntax::Node::Alternative:
+            case Ast::Node::Alternative:
                 return _quant( node->d_quant, "alt" );
             default:
                 return s->d_sym->d_tok.d_val.toStr();
@@ -113,15 +113,15 @@ QVariant SyntaxTreeMdl::data(const QModelIndex& index, int role) const
     case Qt::ForegroundRole:
         if( s->d_sym->d_tok.d_type != EbnfToken::Production )
         {
-            const EbnfSyntax::Node* node = static_cast<const EbnfSyntax::Node*>( s->d_sym );
+            const Ast::Node* node = static_cast<const Ast::Node*>( s->d_sym );
             switch( node->d_type )
             {
-            case EbnfSyntax::Node::Terminal:
+            case Ast::Node::Terminal:
                 return QBrush( Qt::red );
-            case EbnfSyntax::Node::Predicate:
+            case Ast::Node::Predicate:
                 return QBrush( Qt::darkCyan );
-            case EbnfSyntax::Node::Sequence:
-            case EbnfSyntax::Node::Alternative:
+            case Ast::Node::Sequence:
+            case Ast::Node::Alternative:
                 return QBrush( Qt::blue );
             default:
                 break;
@@ -201,7 +201,7 @@ void SyntaxTreeMdl::fillTop()
 {
     if( d_syn.constData() == 0 )
         return;
-    typedef QMultiMap<QString,EbnfSyntax::Definition*> Sorter;
+    typedef QMultiMap<QString,Ast::Definition*> Sorter;
     Sorter sorter;
     for( EbnfSyntax::Definitions::const_iterator i = d_syn->getDefs().begin(); i != d_syn->getDefs().end(); ++i )
         sorter.insert( i.key().toStr().toLower(), i.value() );
@@ -233,7 +233,7 @@ QModelIndex SyntaxTreeMdl::findSymbol(SyntaxTreeMdl::Slot* slot, quint32 line, q
 
 }
 
-void SyntaxTreeMdl::fill(Slot* super, const EbnfSyntax::Node* sym )
+void SyntaxTreeMdl::fill(Slot* super, const Ast::Node* sym )
 {
     if( sym == 0 )
         return;
@@ -244,7 +244,7 @@ void SyntaxTreeMdl::fill(Slot* super, const EbnfSyntax::Node* sym )
     super->d_children.append( s );
 
 
-    foreach( const EbnfSyntax::Node* sub, sym->d_subs )
+    foreach( const Ast::Node* sub, sym->d_subs )
     {
         fill(s, sub );
     }

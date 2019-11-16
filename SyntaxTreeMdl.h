@@ -32,7 +32,7 @@ public:
 
     QTreeView* getParent() const;
     void setSyntax( EbnfSyntax* );
-    const EbnfSyntax::Symbol* getSymbol( const QModelIndex & ) const;
+    const Ast::Symbol* getSymbol( const QModelIndex & ) const;
     QModelIndex findSymbol( quint32 line, quint16 col );
 
     // overrides
@@ -46,13 +46,13 @@ public:
 private:
     struct Slot
     {
-        const EbnfSyntax::Symbol* d_sym;
+        const Ast::Symbol* d_sym;
         QList<Slot*> d_children;
         Slot* d_parent;
         Slot(Slot* p = 0):d_parent(p){ if( p ) p->d_children.append(this); }
         ~Slot() { foreach( Slot* s, d_children ) delete s; }
     };
-    void fill(Slot* super, const EbnfSyntax::Node* sym);
+    void fill(Slot* super, const Ast::Node* sym);
     void fillTop();
     QModelIndex findSymbol(Slot*, quint32 line, quint16 col ) const;
     Slot d_root;

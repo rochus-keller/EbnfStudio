@@ -32,8 +32,8 @@ public:
     CocoGen();
     bool generate(const QString& ebnfPath, EbnfSyntax*, FirstFollowSet*, bool buildAst = true);
 protected:
-    void writeNode( QTextStream& out, EbnfSyntax::Node* node, bool topLevel, bool buildAst );
-    void handlePredicate(QTextStream& out, EbnfSyntax::Node* pred, EbnfSyntax::Node* node );
+    void writeNode( QTextStream& out, Ast::Node* node, bool topLevel, bool buildAst );
+    void handlePredicate(QTextStream& out, Ast::Node* pred, Ast::Node* node );
     QString tokenName(const QString& );
 private:
     FirstFollowSet* d_tbl;

@@ -32,7 +32,7 @@ EbnfAnalyzer::EbnfAnalyzer()
 QSet<QString> EbnfAnalyzer::collectAllTerminalStrings(EbnfSyntax* syn)
 {
     QSet<QString> res;
-    foreach( const EbnfSyntax::Definition* d, syn->getDefs() )
+    foreach( const Ast::Definition* d, syn->getDefs() )
     {
         res += collectAllTerminalStrings( d->d_node );
     }
@@ -42,7 +42,7 @@ QSet<QString> EbnfAnalyzer::collectAllTerminalStrings(EbnfSyntax* syn)
 QStringList EbnfAnalyzer::collectAllTerminalProductions(EbnfSyntax* syn)
 {
     QStringList res;
-    foreach( const EbnfSyntax::Definition* d, syn->getOrderedDefs() )
+    foreach( const Ast::Definition* d, syn->getOrderedDefs() )
     {
         if( d->d_node == 0 && d->d_tok.d_op == EbnfToken::Normal )
             res.append( d->d_tok.d_val.toStr() );
@@ -50,14 +50,14 @@ QStringList EbnfAnalyzer::collectAllTerminalProductions(EbnfSyntax* syn)
     return res;
 }
 
-QSet<QString> EbnfAnalyzer::collectAllTerminalStrings(EbnfSyntax::Node* node)
+QSet<QString> EbnfAnalyzer::collectAllTerminalStrings(Ast::Node* node)
 {
     QSet<QString> res;
     if( node == 0 )
         return res;
-    if( node->d_type == EbnfSyntax::Node::Terminal )
+    if( node->d_type == Ast::Node::Terminal )
         res << node->d_tok.d_val.toStr();
-    foreach( EbnfSyntax::Node* sub, node->d_subs )
+    foreach( Ast::Node* sub, node->d_subs )
         res += collectAllTerminalStrings( sub );
     return res;
 }
@@ -68,14 +68,14 @@ static inline void resize( EbnfAnalyzer::LlkNodes& l, quint16 curBin )
     {
         const int max = curBin + 1 - l.size();
         for( int i = 0; i < max; i++ )
-            l.append( EbnfSyntax::NodeRefSet() );
+            l.append( Ast::NodeRefSet() );
     }
 }
 
 static inline int countNotEmpty( const EbnfAnalyzer::LlkNodes& l )
 {
     int res = 0;
-    foreach( const EbnfSyntax::NodeRefSet& s, l )
+    foreach( const Ast::NodeRefSet& s, l )
         if( !s.isEmpty() )
             res++;
     return res;
@@ -91,12 +91,12 @@ static QByteArray ws( int level )
 
 struct _SubNodeBin
 {
-    const EbnfSyntax::Node* d_node;
+    const Ast::Node* d_node;
     quint16 d_from, d_to;
-    _SubNodeBin( const EbnfSyntax::Node* n, int from, int to ):d_node(n),d_from(from),d_to(to){}
+    _SubNodeBin( const Ast::Node* n, int from, int to ):d_node(n),d_from(from),d_to(to){}
 };
 
-quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& res, const EbnfSyntax::Node* node, FirstFollowSet* tbl, int level)
+quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& res, const Ast::Node* node, FirstFollowSet* tbl, int level)
 {
     // Gehe entlang der Blätter des Baums und sammle alle Terminals ein gruppiert in Distanzboxen.
     // Wird eigentlich nur mit node=Sequence aufgerufen, da ja Predicates nur dort vorkommen
@@ -122,7 +122,7 @@ quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& re
 
     switch( node->d_type )
     {
-    case EbnfSyntax::Node::Terminal:
+    case Ast::Node::Terminal:
         resize( res, curBin );
         res[curBin].insert( node ); // hier ist dieser node gemeint, nicht Follow(node)!
 #ifdef _DEBUG
@@ -131,7 +131,7 @@ quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& re
 #endif
         return 1;
 
-    case EbnfSyntax::Node::Nonterminal:
+    case Ast::Node::Nonterminal:
         if( node->d_def && node->d_def->d_node )
             return calcLlkFirstSetImp( k, curBin, res, node->d_def->d_node, tbl,level+1 );
         else
@@ -146,9 +146,9 @@ quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& re
             return 1;
         }
 
-    case EbnfSyntax::Node::Sequence:
+    case Ast::Node::Sequence:
 #if 0
-        foreach( EbnfSyntax::Node* sub, node->d_subs )
+        foreach( Ast::Node* sub, node->d_subs )
         {
             if( sub->doIgnore() )
                 continue;
@@ -162,7 +162,7 @@ quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& re
             QList<_SubNodeBin> toVisit;
             int i = curBin;
             int nullable = 0;
-            foreach( EbnfSyntax::Node* sub, node->d_subs )
+            foreach( Ast::Node* sub, node->d_subs )
             {
                 if( !sub->doIgnore() )
                 {
@@ -192,10 +192,10 @@ quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& re
         // TODO: repetition
 #endif
         break;
-    case EbnfSyntax::Node::Alternative:
+    case Ast::Node::Alternative:
         {
             quint16 count = 0;
-            foreach( EbnfSyntax::Node* sub, node->d_subs )
+            foreach( Ast::Node* sub, node->d_subs )
             {
                 if( sub->doIgnore() )
                     continue;
@@ -213,7 +213,7 @@ quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& re
 }
 
 void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNodes& res,
-                                    const EbnfSyntax::Node* node, FirstFollowSet* tbl, CheckSet& visited)
+                                    const Ast::Node* node, FirstFollowSet* tbl, CheckSet& visited)
 {
     if( node == 0 || node->doIgnore() )
         return;
@@ -236,7 +236,7 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
         // CheckSet visited; // don't check visited downwards
         switch( node->d_type )
         {
-        case EbnfSyntax::Node::Terminal:
+        case Ast::Node::Terminal:
             resize( res, curBin );
             res[curBin].insert( node ); // hier ist dieser node gemeint, nicht Follow(node)!
 #ifdef _DEBUG
@@ -244,7 +244,7 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
                         node->d_tok.d_val.data() << node->d_tok.d_lineNr << node->d_tok.d_colNr; // TEST
 #endif
             break;
-        case EbnfSyntax::Node::Nonterminal:
+        case Ast::Node::Nonterminal:
             if( node->d_def && node->d_def->d_node )
                 calcLlkFirstSet2Imp( k, curBin, level + 1, res, node->d_def->d_node, tbl, visited );
             else
@@ -258,9 +258,9 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
 #endif
             }
             break;
-        case EbnfSyntax::Node::Sequence:
+        case Ast::Node::Sequence:
 #if 1
-            foreach( EbnfSyntax::Node* sub, node->d_subs )
+            foreach( Ast::Node* sub, node->d_subs )
             {
                 if( sub->doIgnore() )
                     continue;
@@ -272,8 +272,8 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
 #else
 #if 1       // TODO the following does not work yet
             {
-                QList<const EbnfSyntax::Node*> toVisit;
-                foreach( EbnfSyntax::Node* sub, node->d_subs )
+                QList<const Ast::Node*> toVisit;
+                foreach( Ast::Node* sub, node->d_subs )
                 {
                     if( !sub->doIgnore() )
                         toVisit << sub;
@@ -295,9 +295,9 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
 #else
             for( int i = curBin; i < k; i++ )
             {
-                QSet<const EbnfSyntax::Node*> check = visited;
+                QSet<const Ast::Node*> check = visited;
                 int j = 0;
-                foreach( EbnfSyntax::Node* sub, node->d_subs )
+                foreach( Ast::Node* sub, node->d_subs )
                 {
                     if( sub->doIgnore() )
                         continue;
@@ -314,8 +314,8 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
 #endif
 #endif
             break;
-        case EbnfSyntax::Node::Alternative:
-            foreach( EbnfSyntax::Node* sub, node->d_subs )
+        case Ast::Node::Alternative:
+            foreach( Ast::Node* sub, node->d_subs )
             {
                 if( sub->doIgnore() )
                     continue;
@@ -332,7 +332,7 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
     {
         // Vorsicht, es kann sein dass wir beim Weg nach oben wieder dort vorbeikommen, wo man angefangen haben
         curBin = res.size() - 1;
-        if( const EbnfSyntax::Node* next = node->getNext(&curBin) )
+        if( const Ast::Node* next = node->getNext(&curBin) )
         {
             // finde nächsten nach node
             calcLlkFirstSet2Imp(k,curBin,0,res,next,tbl, visited);
@@ -341,10 +341,10 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
         }else
         {
             // gehe entlang node->d_owner->d_usedBy
-            foreach( const EbnfSyntax::Node* use, node->d_owner->d_usedBy )
+            foreach( const Ast::Node* use, node->d_owner->d_usedBy )
             {
                 int index = curBin;
-                const EbnfSyntax::Node* next = use->getNext(&index);
+                const Ast::Node* next = use->getNext(&index);
                 if( next )
                     calcLlkFirstSet2Imp( k, index, 0, res, next, tbl, visited );
                 else // obsolet wegen visited: if( level > -10 ) // begrenze die Tiefe, da es hier ab und zu unendlich weitergeht TODO
@@ -354,21 +354,21 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
     }
 }
 
-bool EbnfAnalyzer::findPath(EbnfSyntax::ConstNodeList& path, const EbnfSyntax::Node* to)
+bool EbnfAnalyzer::findPath(Ast::ConstNodeList& path, const Ast::Node* to)
 {
     if( path.isEmpty() )
         return false;
-    const EbnfSyntax::Node* node = path.last();
+    const Ast::Node* node = path.last();
     if( node->doIgnore() )
         return false;
 
     switch( node->d_type )
     {
-    case EbnfSyntax::Node::Terminal:
+    case Ast::Node::Terminal:
         if( node == to )
             return true;
         break;
-    case EbnfSyntax::Node::Nonterminal:
+    case Ast::Node::Nonterminal:
         if( node->d_def && node->d_def->d_node )
         {
             if( path.contains(node->d_def->d_node) )
@@ -383,8 +383,8 @@ bool EbnfAnalyzer::findPath(EbnfSyntax::ConstNodeList& path, const EbnfSyntax::N
             return true;
         }
         break;
-    case EbnfSyntax::Node::Sequence:
-        foreach( EbnfSyntax::Node* sub, node->d_subs )
+    case Ast::Node::Sequence:
+        foreach( Ast::Node* sub, node->d_subs )
         {
             if( sub->doIgnore() )
                 continue;
@@ -396,8 +396,8 @@ bool EbnfAnalyzer::findPath(EbnfSyntax::ConstNodeList& path, const EbnfSyntax::N
                 break;
         }
         break;
-    case EbnfSyntax::Node::Alternative:
-        foreach( EbnfSyntax::Node* sub, node->d_subs )
+    case Ast::Node::Alternative:
+        foreach( Ast::Node* sub, node->d_subs )
         {
             if( sub->doIgnore() )
                 continue;
@@ -413,7 +413,7 @@ bool EbnfAnalyzer::findPath(EbnfSyntax::ConstNodeList& path, const EbnfSyntax::N
     if( path.size() == 1 )
     {
         // Wir sind zuoberst und haben noch nichts gefunden
-        if( const EbnfSyntax::Node* next = node->getNext() )
+        if( const Ast::Node* next = node->getNext() )
         {
             // finde nächsten nach node
             path.append(next);
@@ -423,9 +423,9 @@ bool EbnfAnalyzer::findPath(EbnfSyntax::ConstNodeList& path, const EbnfSyntax::N
         }else
         {
             // gehe entlang node->d_owner->d_usedBy
-            foreach( const EbnfSyntax::Node* use, node->d_owner->d_usedBy )
+            foreach( const Ast::Node* use, node->d_owner->d_usedBy )
             {
-                const EbnfSyntax::Node* next = use->getNext();
+                const Ast::Node* next = use->getNext();
                 if( next )
                     path.append(next);
                 else
@@ -439,15 +439,15 @@ bool EbnfAnalyzer::findPath(EbnfSyntax::ConstNodeList& path, const EbnfSyntax::N
     return false;
 }
 
-EbnfSyntax::NodeRefSet EbnfAnalyzer::intersectAll(const EbnfAnalyzer::LlkNodes& lhs, const EbnfAnalyzer::LlkNodes& rhs)
+Ast::NodeRefSet EbnfAnalyzer::intersectAll(const EbnfAnalyzer::LlkNodes& lhs, const EbnfAnalyzer::LlkNodes& rhs)
 {
     if( lhs.size() != rhs.size() )
-        return EbnfSyntax::NodeRefSet();
+        return Ast::NodeRefSet();
     int intersects = 0;
-    EbnfSyntax::NodeRefSet sum;
+    Ast::NodeRefSet sum;
     for( int i = 0; i < lhs.size(); i++ )
     {
-        const EbnfSyntax::NodeRefSet diff = lhs[i] & rhs[i];
+        const Ast::NodeRefSet diff = lhs[i] & rhs[i];
         if( ( lhs[i].isEmpty() && rhs[i].isEmpty() ) || !diff.isEmpty() )
         {
             intersects++;
@@ -458,17 +458,17 @@ EbnfSyntax::NodeRefSet EbnfAnalyzer::intersectAll(const EbnfAnalyzer::LlkNodes& 
     if( intersects == lhs.size() )
         return sum;
     else
-        return EbnfSyntax::NodeRefSet();
+        return Ast::NodeRefSet();
 }
 
-void EbnfAnalyzer::calcLlkFirstSet(quint16 k, EbnfAnalyzer::LlkNodes& res, const EbnfSyntax::Node* node, FirstFollowSet* tbl)
+void EbnfAnalyzer::calcLlkFirstSet(quint16 k, EbnfAnalyzer::LlkNodes& res, const Ast::Node* node, FirstFollowSet* tbl)
 {
     calcLlkFirstSetImp( k, 0, res, node, tbl, 0 );
 }
 
-void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, EbnfAnalyzer::LlkNodes& res, const EbnfSyntax::Node* node, FirstFollowSet* tbl)
+void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, EbnfAnalyzer::LlkNodes& res, const Ast::Node* node, FirstFollowSet* tbl)
 {
-    QSet<const EbnfSyntax::Node*> visited;
+    QSet<const Ast::Node*> visited;
     calcLlkFirstSet2Imp( k, 0, 0,res, node, tbl, visited );
 }
 
@@ -477,7 +477,7 @@ void EbnfAnalyzer::checkForAmbiguity(FirstFollowSet* set, EbnfErrors* err)
     EbnfSyntax* syn = set->getSyntax();
     for( int i = 0; i < syn->getOrderedDefs().size(); i++ )
     {
-        const EbnfSyntax::Definition* d = syn->getOrderedDefs()[i];
+        const Ast::Definition* d = syn->getOrderedDefs()[i];
         if( d->doIgnore() || ( i != 0 && d->d_usedBy.isEmpty() ) || d->d_node == 0 )
             continue;
 
@@ -491,7 +491,7 @@ void EbnfAnalyzer::checkForAmbiguity(FirstFollowSet* set, EbnfErrors* err)
     }
 }
 
-void EbnfAnalyzer::checkForAmbiguity(EbnfSyntax::Node* node, FirstFollowSet* set, EbnfErrors* errs , bool recursive)
+void EbnfAnalyzer::checkForAmbiguity(Ast::Node* node, FirstFollowSet* set, EbnfErrors* errs , bool recursive)
 {
     if( node == 0 || node->doIgnore() )
         return;
@@ -504,9 +504,9 @@ void EbnfAnalyzer::checkForAmbiguity(EbnfSyntax::Node* node, FirstFollowSet* set
 
     switch( node->d_type )
     {
-    case EbnfSyntax::Node::Sequence:
-    case EbnfSyntax::Node::Alternative:
-        foreach( EbnfSyntax::Node* sub, node->d_subs )
+    case Ast::Node::Sequence:
+    case Ast::Node::Alternative:
+        foreach( Ast::Node* sub, node->d_subs )
         {
             checkForAmbiguity( sub, set, errs, recursive );
         }
@@ -516,9 +516,9 @@ void EbnfAnalyzer::checkForAmbiguity(EbnfSyntax::Node* node, FirstFollowSet* set
     }
 }
 
-EbnfSyntax::ConstNodeList EbnfAnalyzer::findPath(const EbnfSyntax::Node* from, const EbnfSyntax::Node* to)
+Ast::ConstNodeList EbnfAnalyzer::findPath(const Ast::Node* from, const Ast::Node* to)
 {
-    EbnfSyntax::ConstNodeList res;
+    Ast::ConstNodeList res;
     if( from == 0 )
         return res;
     res << from;
@@ -527,9 +527,9 @@ EbnfSyntax::ConstNodeList EbnfAnalyzer::findPath(const EbnfSyntax::Node* from, c
     return res;
 }
 
-void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollowSet* set, EbnfErrors* errs)
+void EbnfAnalyzer::findAmbiguousAlternatives(Ast::Node* node, FirstFollowSet* set, EbnfErrors* errs)
 {
-    if( node->d_type != EbnfSyntax::Node::Alternative )
+    if( node->d_type != Ast::Node::Alternative )
         return;
 
     // Check each pair of alternatives
@@ -537,17 +537,17 @@ void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollow
     {
         for(int j = i + 1; j < node->d_subs.size(); j++)
         {
-            const EbnfSyntax::Node* a = node->d_subs[i];
-            const EbnfSyntax::Node* b = node->d_subs[j];
+            const Ast::Node* a = node->d_subs[i];
+            const Ast::Node* b = node->d_subs[j];
             if( a->doIgnore() || b->doIgnore() )
                 continue;
             // TODO: wenn eine Alternative Nullable ist, müsste auch noch ihre Follow mitberücksichtigt werden!
-            const EbnfSyntax::NodeRefSet diff = set->getFirstSet(a) & set->getFirstSet(b);
+            const Ast::NodeRefSet diff = set->getFirstSet(a) & set->getFirstSet(b);
             if( diff.isEmpty() )
                 continue;
 
-            const EbnfSyntax::Node* predA = EbnfSyntax::firstPredicateOf(a);
-            const EbnfSyntax::Node* predB = EbnfSyntax::firstPredicateOf(b);
+            const Ast::Node* predA = EbnfSyntax::firstPredicateOf(a);
+            const Ast::Node* predB = EbnfSyntax::firstPredicateOf(b);
             int ll = 0;
             if( predA != 0 )
                 ll = predA->getLlk();
@@ -566,12 +566,12 @@ void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollow
                 EbnfAnalyzer::LlkNodes llkB;
                 calcLlkFirstSet2( ll, llkB, b, set );
 
-                const EbnfSyntax::NodeRefSet diff = intersectAll( llkA, llkB );
+                const Ast::NodeRefSet diff = intersectAll( llkA, llkB );
                 if( llkA.size() == llkB.size() && llkA.size() == ll && diff.isEmpty() )
                     continue;
 
-                const EbnfSyntax::Node* pred = predA != 0 ? predA : predB;
-                const EbnfSyntax::Node* other = predA != 0 ? b : a;
+                const Ast::Node* pred = predA != 0 ? predA : predB;
+                const Ast::Node* other = predA != 0 ? b : a;
                 if( pred )
                     errs->warning(EbnfErrors::Analysis, pred->d_tok.d_lineNr, pred->d_tok.d_colNr,
                             QString("predicate not effective for LL(%1)").arg(ll),
@@ -582,8 +582,8 @@ void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollow
 
             if( !diff.isEmpty() )
             {
-                const EbnfSyntax::Node* aa = EbnfSyntax::firstVisibleElementOf(a);
-                EbnfSyntax::NodeSet diff2 = EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(a) );
+                const Ast::Node* aa = EbnfSyntax::firstVisibleElementOf(a);
+                Ast::NodeSet diff2 = EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(a) );
                 diff2 += EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(b) );
                 errs->error(EbnfErrors::Analysis, aa->d_tok.d_lineNr, aa->d_tok.d_colNr,
                             QString("alternatives %1 and %2 are LL(1) ambiguous because of %3")
@@ -595,27 +595,27 @@ void EbnfAnalyzer::findAmbiguousAlternatives(EbnfSyntax::Node* node, FirstFollow
     }
 }
 
-void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet* set, EbnfErrors* errs)
+void EbnfAnalyzer::findAmbiguousOptionals(Ast::Node* seq, FirstFollowSet* set, EbnfErrors* errs)
 {
     // ZeroOrOne and ZeroOrMore haben genau dieselben Mehrdeutigkeitskriterien. Es ist egal, ob
     // a nur ein oder mehrmals wiederholt wird; in jedem Fall ist die Schnittmenge zwischen First(a) und Follow(a)
     // massgebend!
 
-    if( seq->d_type != EbnfSyntax::Node::Sequence )
+    if( seq->d_type != Ast::Node::Sequence )
         return;
 
-    EbnfSyntax::NodeRefSet upperFollow = set->getFollowSet(seq);
+    Ast::NodeRefSet upperFollow = set->getFollowSet(seq);
     for(int i = 0; i < seq->d_subs.size(); i++)
     {
-        const EbnfSyntax::Node* a = seq->d_subs[i];
+        const Ast::Node* a = seq->d_subs[i];
         if( a->doIgnore() || !a->isNullable() )
             continue;
-        EbnfSyntax::NodeRefSet follow; // = set->getFollowSet(1,a);
+        Ast::NodeRefSet follow; // = set->getFollowSet(1,a);
         bool nonNullableFound = false;
-        const EbnfSyntax::Node* b = 0;
+        const Ast::Node* b = 0;
         for( int j = i + 1; j < seq->d_subs.size(); j++ )
         {
-            const EbnfSyntax::Node* n = seq->d_subs[j];
+            const Ast::Node* n = seq->d_subs[j];
             if( n->doIgnore() )
                 continue;
             if( b == 0 )
@@ -630,14 +630,14 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
         if( !nonNullableFound )
             follow += upperFollow;
 
-        const EbnfSyntax::NodeRefSet diff = set->getFirstSet(a) & follow;
+        const Ast::NodeRefSet diff = set->getFirstSet(a) & follow;
         if( diff.isEmpty() )
             continue;
 
         // else
         //if( seq->d_owner->d_tok.d_val == "list_of_param_assignments" )
         //    qDebug() << "hit";
-        const EbnfSyntax::Node* pred = EbnfSyntax::firstPredicateOf(a);
+        const Ast::Node* pred = EbnfSyntax::firstPredicateOf(a);
         int ll = 0;
         if( pred != 0 )
         {
@@ -654,12 +654,12 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
                 EbnfAnalyzer::LlkNodes llkB;
                 if( b == 0 )
                 {
-                    QSet<const EbnfSyntax::Node*> visited;
+                    QSet<const Ast::Node*> visited;
                     calcLlkFirstSet2Imp(ll,0,-1,llkB, seq, set, visited );
                 }else
                     calcLlkFirstSet2( ll, llkB, b, set );
 
-                const EbnfSyntax::NodeRefSet diff = intersectAll( llkA, llkB );
+                const Ast::NodeRefSet diff = intersectAll( llkA, llkB );
                 if( llkA.size() == llkB.size() && llkA.size() == ll && diff.isEmpty() )
                     continue;
                 errs->warning(EbnfErrors::Analysis, pred->d_tok.d_lineNr, pred->d_tok.d_colNr,
@@ -668,7 +668,7 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
                                 EbnfSyntax::IssueData::BadPred,pred, b ? b : seq)) );
             }
         }
-        EbnfSyntax::NodeSet diff2 = EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(a) );
+        Ast::NodeSet diff2 = EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(a) );
         if( b != 0 )
             diff2 += EbnfSyntax::collectNodes( diff, set->getFirstNodeSet(b) );
 //        if( diff.size() != diff2.size() )
@@ -677,20 +677,20 @@ void EbnfAnalyzer::findAmbiguousOptionals(EbnfSyntax::Node* seq, FirstFollowSet*
     }
 }
 
-void EbnfAnalyzer::reportAmbig(EbnfSyntax::Node* sequence, int ambigIdx, const EbnfSyntax::NodeRefSet& ambigSet,
-                               const EbnfSyntax::NodeSet& ambigSet2, FirstFollowSet* set, EbnfErrors* errs)
+void EbnfAnalyzer::reportAmbig(Ast::Node* sequence, int ambigIdx, const Ast::NodeRefSet& ambigSet,
+                               const Ast::NodeSet& ambigSet2, FirstFollowSet* set, EbnfErrors* errs)
 {
-    EbnfSyntax::Node* a = sequence->d_subs[ambigIdx];
-    const EbnfSyntax::Node* start = EbnfSyntax::firstVisibleElementOf(sequence);
+    Ast::Node* a = sequence->d_subs[ambigIdx];
+    const Ast::Node* start = EbnfSyntax::firstVisibleElementOf(sequence);
     QString ofSeq;
     if( start && start != a )
         ofSeq = QString("start. w. '%1' ").arg(start->d_tok.d_val.toStr());
 
-    const EbnfSyntax::Node* next = 0;
+    const Ast::Node* next = 0;
     bool fullAmbig = false;
     for( int j = ambigIdx + 1; j < sequence->d_subs.size(); j++ )
     {
-        const EbnfSyntax::NodeRefSet diffDiff = ambigSet & set->getFirstSet(sequence->d_subs[j]);
+        const Ast::NodeRefSet diffDiff = ambigSet & set->getFirstSet(sequence->d_subs[j]);
         if( !diffDiff.isEmpty() )
         {
             if( diffDiff == ambigSet )

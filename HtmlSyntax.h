@@ -35,8 +35,8 @@ public:
     QString d_error;
 protected:
     bool reformat(const QTextDocument&, QTextStream& );
-    typedef QList<const EbnfSyntax::Definition*> Stack;
-    static void writeCompressedDefs(QTextStream& out, EbnfSyntax::Node* node,
+    typedef QList<const Ast::Definition*> Stack;
+    static void writeCompressedDefs(QTextStream& out, Ast::Node* node,
                                     Stack& stack, int level, bool all );
 };
 

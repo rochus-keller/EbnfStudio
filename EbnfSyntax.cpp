@@ -25,7 +25,7 @@
 
 // Ursprünglich aus Ada::Syntax adaptiert; stark modifiziert
 
-const char* EbnfSyntax::Node::s_typeName[] =
+const char* Ast::Node::s_typeName[] =
 {
     "Terminal",
     "Nonterminal",
@@ -42,10 +42,10 @@ static bool error( EbnfErrors* errs, EbnfErrors::Source s,const EbnfToken& tok, 
     return false;
 }
 
-QString EbnfSyntax::pretty(const EbnfSyntax::NodeRefSet& s)
+QString EbnfSyntax::pretty(const Ast::NodeRefSet& s)
 {
     QStringList l;
-    foreach( const NodeRef& r, s )
+    foreach( const Ast::NodeRef& r, s )
     {
         l.append( "'" + r.d_node->d_tok.d_val.toStr() + "'" );
     }
@@ -53,10 +53,10 @@ QString EbnfSyntax::pretty(const EbnfSyntax::NodeRefSet& s)
     return l.join(' ');
 }
 
-QString EbnfSyntax::pretty(const EbnfSyntax::NodeSet& s)
+QString EbnfSyntax::pretty(const Ast::NodeSet& s)
 {
     QStringList l;
-    foreach( const Node* r, s )
+    foreach( const Ast::Node* r, s )
     {
         l.append( "'" + r->d_tok.d_val.toStr() + "'" );
     }
@@ -64,11 +64,11 @@ QString EbnfSyntax::pretty(const EbnfSyntax::NodeSet& s)
     return l.join(' ');
 }
 
-EbnfSyntax::NodeRefSet EbnfSyntax::nodeToRefSet(const EbnfSyntax::NodeSet& s)
+Ast::NodeRefSet EbnfSyntax::nodeToRefSet(const Ast::NodeSet& s)
 {
-    NodeRefSet res;
-    foreach( const Node* n, s )
-        res.insert( n );
+    Ast::NodeRefSet res;
+    foreach( const Ast::Node* n, s )
+        res.insert( Ast::NodeRef(n) );
 //    if( s.size() != res.size() )
 //    {
 //        qDebug() << "**** EbnfSyntax::nodeToRefSet size deviation";
@@ -78,10 +78,10 @@ EbnfSyntax::NodeRefSet EbnfSyntax::nodeToRefSet(const EbnfSyntax::NodeSet& s)
     return res;
 }
 
-EbnfSyntax::NodeSet EbnfSyntax::collectNodes(const EbnfSyntax::NodeRefSet& pattern, const EbnfSyntax::NodeSet& set)
+Ast::NodeSet EbnfSyntax::collectNodes(const Ast::NodeRefSet& pattern, const Ast::NodeSet& set)
 {
-    EbnfSyntax::NodeSet res;
-    foreach( const Node* n, set )
+    Ast::NodeSet res;
+    foreach( const Ast::Node* n, set )
     {
         if( pattern.contains(n) )
             res << n;
@@ -102,40 +102,40 @@ EbnfSyntax::~EbnfSyntax()
 void EbnfSyntax::dump() const
 {
 	qDebug() << "******** Begin Dump";
-    foreach( Definition* d, d_order )
+    foreach( Ast::Definition* d, d_order )
         d->dump();
 	qDebug() << "******** End Dump";
 }
 
 void EbnfSyntax::clear()
 {
-	foreach( Definition* d, d_defs )
+    foreach( Ast::Definition* d, d_defs )
 		delete d;
     d_defs.clear();
     d_order.clear();
-    foreach( Definition* d, d_pragmas )
+    foreach( Ast::Definition* d, d_pragmas )
         delete d;
     d_pragmas.clear();
     d_finished = false;
     d_idol.clear();
 }
 
-static bool isTerminalOrSeqOfTerminals( const EbnfSyntax::Node* n )
+static bool isTerminalOrSeqOfTerminals( const Ast::Node* n )
 {
     if( n == 0 )
         return false;
-    if( n->d_type != EbnfSyntax::Node::Sequence && n->d_type != EbnfSyntax::Node::Terminal &&
-            n->d_type != EbnfSyntax::Node::Nonterminal )
+    if( n->d_type != Ast::Node::Sequence && n->d_type != Ast::Node::Terminal &&
+            n->d_type != Ast::Node::Nonterminal )
         return false;
-    foreach( const EbnfSyntax::Node* sub, n->d_subs )
+    foreach( const Ast::Node* sub, n->d_subs )
     {
-        if( sub->d_type != EbnfSyntax::Node::Terminal && sub->d_type != EbnfSyntax::Node::Nonterminal )
+        if( sub->d_type != Ast::Node::Terminal && sub->d_type != Ast::Node::Nonterminal )
             return false;
     }
     return true;
 }
 
-bool EbnfSyntax::addDef(EbnfSyntax::Definition* d)
+bool EbnfSyntax::addDef(Ast::Definition* d)
 {
     if( d_errs )
         d_errs->resetErrCount();
@@ -149,7 +149,7 @@ bool EbnfSyntax::addDef(EbnfSyntax::Definition* d)
     {
         if( d->d_tok.d_val.toBa().startsWith('%') )
         {
-            Definition*& def = d_pragmas[ d->d_tok.d_val ];
+            Ast::Definition*& def = d_pragmas[ d->d_tok.d_val ];
             if( def != 0 )
             {
                 if( d_errs )
@@ -167,7 +167,7 @@ bool EbnfSyntax::addDef(EbnfSyntax::Definition* d)
     }
 }
 
-bool EbnfSyntax::addPragma(const EbnfToken& name, EbnfSyntax::Node* ex)
+bool EbnfSyntax::addPragma(const EbnfToken& name, Ast::Node* ex)
 {
     if( ex == 0 )
         return false;
@@ -179,26 +179,26 @@ bool EbnfSyntax::addPragma(const EbnfToken& name, EbnfSyntax::Node* ex)
         delete ex;
         return false;
     }
-    Definition*& def = d_pragmas[ name.d_val ];
+    Ast::Definition*& def = d_pragmas[ name.d_val ];
     if( def == 0 )
-        def = new Definition(name);
+        def = new Ast::Definition(name);
 
     if( def->d_node == 0 )
     {
         def->d_node = ex;
         return true;
     }
-    if( def->d_node->d_type != Node::Sequence )
+    if( def->d_node->d_type != Ast::Node::Sequence )
     {
-        EbnfSyntax::Node* n = def->d_node;
-        def->d_node = new Node( Node::Sequence, def );
+        Ast::Node* n = def->d_node;
+        def->d_node = new Ast::Node( Ast::Node::Sequence, def );
         def->d_node->d_subs.append(n);
         n->d_parent = def->d_node;
     }
-    if( ex->d_type == EbnfSyntax::Node::Sequence )
+    if( ex->d_type == Ast::Node::Sequence )
     {
         def->d_node->d_subs += ex->d_subs;
-        foreach( Node* n, ex->d_subs )
+        foreach( Ast::Node* n, ex->d_subs )
         {
             n->d_parent = def->d_node;
             n->d_owner = def;
@@ -214,22 +214,22 @@ bool EbnfSyntax::addPragma(const EbnfToken& name, EbnfSyntax::Node* ex)
     return true;
 }
 
-const EbnfSyntax::Definition*EbnfSyntax::getDef(const EbnfToken::Sym& name) const
+const Ast::Definition*EbnfSyntax::getDef(const EbnfToken::Sym& name) const
 {
     return d_defs.value(name);
 }
 
 EbnfSyntax::SymList EbnfSyntax::getPragma(const QByteArray& name) const
 {
-    const Definition* d = d_pragmas.value( EbnfToken::getSym(name) );
+    const Ast::Definition* d = d_pragmas.value( EbnfToken::getSym(name) );
     SymList res;
     if( d && d->d_node )
     {
-        if( d->d_node->d_type == Node::Terminal )
+        if( d->d_node->d_type == Ast::Node::Terminal )
             res << d->d_node->d_tok.d_val;
         else
         {
-            foreach( const Node* sub, d->d_node->d_subs )
+            foreach( const Ast::Node* sub, d->d_node->d_subs )
                 res << sub->d_tok.d_val;
         }
     }
@@ -277,7 +277,7 @@ bool EbnfSyntax::resolveAllSymbols()
     d_backRefs.clear();
     for( i = d_order.begin(); i != d_order.end(); ++i )
     {
-        Definition* d = (*i);
+        Ast::Definition* d = (*i);
         if( d->d_node && !d->doIgnore() )
         {
             //qDebug() << Node::s_typeName[(*i)->d_node->d_type] << (*i)->d_node->d_tok.toString(false);
@@ -286,7 +286,7 @@ bool EbnfSyntax::resolveAllSymbols()
 	}
     for( int j = 1; j < d_order.size(); j++ ) // ignore first
     {
-        Definition* d = d_order[j];
+        Ast::Definition* d = d_order[j];
         if( !d->doIgnore() && d->d_usedBy.isEmpty() && d->d_node != 0 )
         {
             if( d_errs )
@@ -305,7 +305,7 @@ void EbnfSyntax::calculateNullable()
 {
     // Implement algorithm by a fixed­‐point iteration
 
-    foreach( Definition* d, d_order )
+    foreach( Ast::Definition* d, d_order )
     {
         d->d_nullable = false;
         d->d_repeatable = false;
@@ -315,7 +315,7 @@ void EbnfSyntax::calculateNullable()
     do
     {
         changed = false;
-        foreach( Definition* d, d_order )
+        foreach( Ast::Definition* d, d_order )
         {
             const bool nullable = ( d->d_node == 0 ? false : d->d_node->isNullable() );
             const bool repeatable = ( d->d_node == 0 ? false : d->d_node->isRepeatable() );
@@ -348,13 +348,13 @@ void EbnfSyntax::checkReachability()
     do
     {
         changed = false;
-        foreach( Definition* d, d_order )
+        foreach( Ast::Definition* d, d_order )
         {
             if( d->d_usedBy.isEmpty() || d->doIgnore() )
                 continue; // unused already checked
 
             bool atLeastOneIsReachable = false;
-            foreach( const Node* n, d->d_usedBy )
+            foreach( const Ast::Node* n, d->d_usedBy )
             {
                 if( !n->doIgnore() && !n->d_owner->doIgnore() )
                 {
@@ -374,7 +374,7 @@ void EbnfSyntax::checkReachability()
             }
         }
     }while( changed );
-    foreach( Definition* d, d_order )
+    foreach( Ast::Definition* d, d_order )
     {
         if( d->doIgnore() )
             continue;
@@ -385,13 +385,13 @@ void EbnfSyntax::checkReachability()
 
 }
 
-static inline bool isHit( const EbnfSyntax::Symbol* sym, quint32 line, quint16 col )
+static inline bool isHit( const Ast::Symbol* sym, quint32 line, quint16 col )
 {
     return sym->d_tok.d_lineNr == line &&
             sym->d_tok.d_colNr <= col && col <= ( sym->d_tok.d_colNr + sym->d_tok.d_len );
 }
 
-const EbnfSyntax::Symbol*EbnfSyntax::findSymbolBySourcePos(quint32 line, quint16 col, bool nonTermOnly) const
+const Ast::Symbol*EbnfSyntax::findSymbolBySourcePos(quint32 line, quint16 col, bool nonTermOnly) const
 {
     //qDebug() << "find" << line << col;
     for( int i = d_order.size() - 1; i >= 0; i-- )
@@ -408,27 +408,27 @@ const EbnfSyntax::Symbol*EbnfSyntax::findSymbolBySourcePos(quint32 line, quint16
     return 0;
 }
 
-EbnfSyntax::ConstNodeList EbnfSyntax::getBackRefs(const Symbol* sym) const
+Ast::ConstNodeList EbnfSyntax::getBackRefs(const Ast::Symbol* sym) const
 {
     if( sym == 0 )
-        return ConstNodeList();
+        return Ast::ConstNodeList();
     else
         return d_backRefs.value( sym->d_tok.d_val );
 }
 
-const EbnfSyntax::Node*EbnfSyntax::firstVisibleElementOf(const EbnfSyntax::Node* node)
+const Ast::Node*EbnfSyntax::firstVisibleElementOf(const Ast::Node* node)
 {
     if( node == 0 || node->doIgnore() )
         return 0;
 
     switch( node->d_type )
     {
-    case EbnfSyntax::Node::Nonterminal:
-    case EbnfSyntax::Node::Terminal:
+    case Ast::Node::Nonterminal:
+    case Ast::Node::Terminal:
         return node;
-    case EbnfSyntax::Node::Sequence:
-    case EbnfSyntax::Node::Alternative:
-        foreach( Node* n, node->d_subs )
+    case Ast::Node::Sequence:
+    case Ast::Node::Alternative:
+        foreach( Ast::Node* n, node->d_subs )
         {
             if( n->doIgnore() )
                 continue;
@@ -441,23 +441,23 @@ const EbnfSyntax::Node*EbnfSyntax::firstVisibleElementOf(const EbnfSyntax::Node*
     return 0;
 }
 
-const EbnfSyntax::Node*EbnfSyntax::firstPredicateOf(const EbnfSyntax::Node* node)
+const Ast::Node*EbnfSyntax::firstPredicateOf(const Ast::Node* node)
 {
     if( node == 0 )
         return 0;
 
     switch( node->d_type )
     {
-    case EbnfSyntax::Node::Nonterminal:
-    case EbnfSyntax::Node::Terminal:
+    case Ast::Node::Nonterminal:
+    case Ast::Node::Terminal:
         return 0;
-    case EbnfSyntax::Node::Sequence:
-    case EbnfSyntax::Node::Alternative:
-        foreach( Node* n, node->d_subs )
+    case Ast::Node::Sequence:
+    case Ast::Node::Alternative:
+        foreach( Ast::Node* n, node->d_subs )
         {
-            if( n->d_type == EbnfSyntax::Node::Predicate )
+            if( n->d_type == Ast::Node::Predicate )
                 return n;
-            const Node* res = firstPredicateOf(n);
+            const Ast::Node* res = firstPredicateOf(n);
             if( res )
                 return res;
         }
@@ -468,17 +468,17 @@ const EbnfSyntax::Node*EbnfSyntax::firstPredicateOf(const EbnfSyntax::Node* node
     return 0;
 }
 
-bool EbnfSyntax::resolveAllSymbols(EbnfSyntax::Node *node)
+bool EbnfSyntax::resolveAllSymbols(Ast::Node *node)
 {
 	Q_ASSERT( node->d_owner != 0 );
     switch( node->d_type )
     {
-    case Node::Nonterminal:
+    case Ast::Node::Nonterminal:
         {
             Definitions::const_iterator i = d_defs.find( node->d_tok.d_val );
             if( i != d_defs.end() )
             {
-                Definition* def = i.value();
+                Ast::Definition* def = i.value();
                 def->d_usedBy.insert(node);
                 node->d_def = def;
                 d_backRefs[node->d_tok.d_val].append(node);
@@ -494,14 +494,14 @@ bool EbnfSyntax::resolveAllSymbols(EbnfSyntax::Node *node)
             }
         }
         break;
-    case Node::Terminal:
-    case Node::Predicate:
+    case Ast::Node::Terminal:
+    case Ast::Node::Predicate:
         d_backRefs[node->d_tok.d_val].append(node);
         break;
     default:
         break;
     }
-    foreach( Node* sub, node->d_subs )
+    foreach( Ast::Node* sub, node->d_subs )
     {
         resolveAllSymbols( sub );
     }
@@ -511,22 +511,22 @@ bool EbnfSyntax::resolveAllSymbols(EbnfSyntax::Node *node)
         return true;
 }
 
-const EbnfSyntax::Symbol*EbnfSyntax::findSymbolBySourcePosImp(const EbnfSyntax::Node* node, quint32 line, quint16 col, bool nonTermOnly) const
+const Ast::Symbol*EbnfSyntax::findSymbolBySourcePosImp(const Ast::Node* node, quint32 line, quint16 col, bool nonTermOnly) const
 {
     if( node == 0 )
         return 0;
     if( node->d_tok.d_lineNr > line )
         return 0;
     //qDebug() << "Node" << node->d_tok.toString() << node->d_tok.d_lineNr << node->d_tok.d_colNr << node->d_tok.d_len;
-    if( node->d_type == Node::Terminal && !nonTermOnly && isHit( node, line, col ) )
+    if( node->d_type == Ast::Node::Terminal && !nonTermOnly && isHit( node, line, col ) )
         return node;
-    else if( node->d_type == Node::Nonterminal && isHit( node, line, col ) )
+    else if( node->d_type == Ast::Node::Nonterminal && isHit( node, line, col ) )
         return node;
     // else
-    foreach( const Node* n, node->d_subs )
+    foreach( const Ast::Node* n, node->d_subs )
     {
         // TODO: binary search falls nötig
-        const EbnfSyntax::Symbol* res = findSymbolBySourcePosImp( n, line, col, nonTermOnly );
+        const Ast::Symbol* res = findSymbolBySourcePosImp( n, line, col, nonTermOnly );
         if( res )
             return res;
     }
@@ -535,13 +535,13 @@ const EbnfSyntax::Symbol*EbnfSyntax::findSymbolBySourcePosImp(const EbnfSyntax::
 
 void EbnfSyntax::calcLeftRecursion()
 {
-    foreach( Definition* d, d_order )
+    foreach( Ast::Definition* d, d_order )
     {
         d->d_directLeftRecursive = false;
         d->d_indirectLeftRecursive = false;
         if( d->doIgnore() || d->d_node == 0 )
             continue;
-        NodeList path;
+        Ast::NodeList path;
         markLeftRecursion(d,d->d_node,path);
     }
     /*
@@ -584,7 +584,7 @@ void EbnfSyntax::calcLeftRecursion()
 
 }
 
-void EbnfSyntax::markLeftRecursion(EbnfSyntax::Definition* start, Node* cur, EbnfSyntax::NodeList& path)
+void EbnfSyntax::markLeftRecursion(Ast::Definition* start, Ast::Node* cur, Ast::NodeList& path)
 {
     if( cur == 0 || cur->doIgnore() )
         return;
@@ -596,16 +596,16 @@ void EbnfSyntax::markLeftRecursion(EbnfSyntax::Definition* start, Node* cur, Ebn
     }
     switch( cur->d_type )
     {
-    case EbnfSyntax::Node::Alternative:
-        foreach( EbnfSyntax::Node* sub, cur->d_subs )
+    case Ast::Node::Alternative:
+        foreach( Ast::Node* sub, cur->d_subs )
         {
             if( sub->doIgnore() )
                 continue;
             markLeftRecursion(start,sub,path);
         }
         break;
-    case EbnfSyntax::Node::Sequence:
-        foreach( EbnfSyntax::Node* sub, cur->d_subs )
+    case Ast::Node::Sequence:
+        foreach( Ast::Node* sub, cur->d_subs )
         {
             if( sub->doIgnore() )
                 continue;
@@ -615,7 +615,7 @@ void EbnfSyntax::markLeftRecursion(EbnfSyntax::Definition* start, Node* cur, Ebn
                 break;
         }
         break;
-    case EbnfSyntax::Node::Nonterminal:
+    case Ast::Node::Nonterminal:
         if( !cur->doIgnore() && cur->d_def != 0 && cur->d_def->d_node != 0 )
         {
             if( cur->d_def == start )
@@ -628,8 +628,8 @@ void EbnfSyntax::markLeftRecursion(EbnfSyntax::Definition* start, Node* cur, Ebn
                 cur->d_pathToDef = path;
                 if( d_errs )
                 {
-                    ConstNodeList l;
-                    foreach( EbnfSyntax::Node* n, path )
+                    Ast::ConstNodeList l;
+                    foreach( Ast::Node* n, path )
                         l.append(n);
                     d_errs->error( EbnfErrors::Semantics, cur->d_tok.d_lineNr, cur->d_tok.d_colNr,
                                    QString("%1 left recursion with '%2'").
@@ -640,7 +640,7 @@ void EbnfSyntax::markLeftRecursion(EbnfSyntax::Definition* start, Node* cur, Ebn
             }else
             {
                 bool recursion = false;
-                foreach( Node* n, path )
+                foreach( Ast::Node* n, path )
                 {
                     if( n == cur || n->d_def == cur->d_def )
                     {
@@ -657,8 +657,8 @@ void EbnfSyntax::markLeftRecursion(EbnfSyntax::Definition* start, Node* cur, Ebn
             }
         }
         break;
-    case EbnfSyntax::Node::Terminal:
-    case EbnfSyntax::Node::Predicate:
+    case Ast::Node::Terminal:
+    case Ast::Node::Predicate:
         // ignore
         break;
     }
@@ -668,7 +668,7 @@ void EbnfSyntax::checkPragmas()
 {
     if( d_errs == 0 )
         return;
-    foreach( const Definition* d, d_pragmas )
+    foreach( const Ast::Definition* d, d_pragmas )
     {
         if( !isTerminalOrSeqOfTerminals( d->d_node ) )
         {
@@ -678,25 +678,25 @@ void EbnfSyntax::checkPragmas()
     }
 }
 
-EbnfSyntax::NodeRefSet EbnfSyntax::calcStartsWithNtSet(EbnfSyntax::Node* node)
+Ast::NodeRefSet EbnfSyntax::calcStartsWithNtSet(Ast::Node* node)
 {
     if( node == 0 || node->doIgnore() )
-        return NodeRefSet();
+        return Ast::NodeRefSet();
 
     node->d_leftRecursive = false;
-    NodeRefSet res;
+    Ast::NodeRefSet res;
     switch( node->d_type )
     {
-    case EbnfSyntax::Node::Alternative:
-        foreach( EbnfSyntax::Node* sub, node->d_subs )
+    case Ast::Node::Alternative:
+        foreach( Ast::Node* sub, node->d_subs )
         {
             if( sub->doIgnore() )
                 continue;
             res += calcStartsWithNtSet( sub );
         }
         break;
-    case EbnfSyntax::Node::Sequence:
-        foreach( EbnfSyntax::Node* sub, node->d_subs )
+    case Ast::Node::Sequence:
+        foreach( Ast::Node* sub, node->d_subs )
         {
             if( sub->doIgnore() )
                 continue;
@@ -706,15 +706,15 @@ EbnfSyntax::NodeRefSet EbnfSyntax::calcStartsWithNtSet(EbnfSyntax::Node* node)
                 break;
         }
         break;
-    case EbnfSyntax::Node::Nonterminal:
+    case Ast::Node::Nonterminal:
         if( !node->doIgnore() )
         {
             if( node->d_def != 0 && node->d_def->d_node != 0 )
                 res << node;
         }
         break;
-    case EbnfSyntax::Node::Terminal:
-    case EbnfSyntax::Node::Predicate:
+    case Ast::Node::Terminal:
+    case Ast::Node::Predicate:
         // ignore
         break;
     }
@@ -725,7 +725,7 @@ void EbnfSyntax::checkPredicates()
 {
     if( d_errs == 0 )
         return;
-    foreach( const Definition* d, d_defs )
+    foreach( const Ast::Definition* d, d_defs )
     {
         if( !d->doIgnore() && d->d_node != 0 )
             checkPredicates(d->d_node);
@@ -739,7 +739,7 @@ static bool checkLaAst( EbnfSyntax* syn, LaParser::Ast* ast, const EbnfToken& to
         const EbnfToken::Sym sym = EbnfToken::getSym(ast->d_val);
         if( syn->getKeywords().contains(sym) )
             return true;
-        const EbnfSyntax::Definition* d = syn->getDef(sym);
+        const Ast::Definition* d = syn->getDef(sym);
         if( d == 0 )
             return error( syn->getErrs(), EbnfErrors::Semantics, tok,
                           QString("unknown terminal '%1'").arg(ast->d_val.constData()) );
@@ -757,10 +757,10 @@ static bool checkLaAst( EbnfSyntax* syn, LaParser::Ast* ast, const EbnfToken& to
     return true;
 }
 
-void EbnfSyntax::checkPredicates(EbnfSyntax::Node* node)
+void EbnfSyntax::checkPredicates(Ast::Node* node)
 {
     Q_ASSERT( node != 0 );
-    if( node->d_type == Node::Predicate )
+    if( node->d_type == Ast::Node::Predicate )
     {
         const QByteArray val = node->d_tok.d_val.toBa();
         if( val.startsWith("LL:") )
@@ -785,16 +785,16 @@ void EbnfSyntax::checkPredicates(EbnfSyntax::Node* node)
         }else
             error( d_errs, EbnfErrors::Syntax, node->d_tok, "unknown predicate" );
     }else
-        foreach( Node* sub, node->d_subs )
+        foreach( Ast::Node* sub, node->d_subs )
             checkPredicates(sub);
 }
 
-bool EbnfSyntax::Definition::doIgnore() const
+bool Ast::Definition::doIgnore() const
 {
     return d_tok.d_op == EbnfToken::Skip || d_notReachable;
 }
 
-void EbnfSyntax::Definition::dump() const
+void Ast::Definition::dump() const
 {
     qDebug() << d_tok.d_val.toStr() << "::=";
 	if( d_node )
@@ -803,19 +803,19 @@ void EbnfSyntax::Definition::dump() const
 		qDebug() << "    No nodes";
 }
 
-EbnfSyntax::Node::~Node()
+Ast::Node::~Node()
 {
 	foreach( Node* n, d_subs )
         delete n;
 }
 
-bool EbnfSyntax::Node::doIgnore() const
+bool Ast::Node::doIgnore() const
 {
     return d_type == Predicate || d_tok.d_op == EbnfToken::Skip ||
             ( d_def != 0 && d_def->doIgnore() && d_tok.d_op != EbnfToken::Keep );
 }
 
-bool EbnfSyntax::Node::isNullable() const
+bool Ast::Node::isNullable() const
 {
     if( d_quant != One )
         return true;
@@ -850,7 +850,7 @@ bool EbnfSyntax::Node::isNullable() const
     return false;
 }
 
-bool EbnfSyntax::Node::isRepeatable() const
+bool Ast::Node::isRepeatable() const
 {
     if( d_quant == ZeroOrMore )
         return true;
@@ -883,7 +883,7 @@ bool EbnfSyntax::Node::isRepeatable() const
     return false;
 }
 
-bool EbnfSyntax::Node::isAnyReachable() const
+bool Ast::Node::isAnyReachable() const
 {
     if( doIgnore() )
         return false;
@@ -913,7 +913,7 @@ bool EbnfSyntax::Node::isAnyReachable() const
     return false;
 }
 
-const EbnfSyntax::Node*EbnfSyntax::Node::getNext(int* index) const
+const Ast::Node*Ast::Node::getNext(int* index) const
 {
     Node* parent = d_parent;
     const Node* me = this;
@@ -936,7 +936,7 @@ const EbnfSyntax::Node*EbnfSyntax::Node::getNext(int* index) const
     return 0;
 }
 
-int EbnfSyntax::Node::getLlk() const
+int Ast::Node::getLlk() const
 {
     const QByteArray val = d_tok.d_val;
     if( d_type != Predicate || !val.startsWith("LL:") )
@@ -944,7 +944,7 @@ int EbnfSyntax::Node::getLlk() const
     return val.mid(3).toUInt(); // validity was already checked in EbnfParser
 }
 
-QByteArray EbnfSyntax::Node::getLa() const
+QByteArray Ast::Node::getLa() const
 {
     const QByteArray val = d_tok.d_val;
     if( val.startsWith("LA:") )
@@ -953,7 +953,7 @@ QByteArray EbnfSyntax::Node::getLa() const
         return QByteArray();
 }
 
-void EbnfSyntax::Node::dump(int level) const
+void Ast::Node::dump(int level) const
 {
 	QString str;
 	switch( d_type )
@@ -991,7 +991,7 @@ void EbnfSyntax::Node::dump(int level) const
         n->dump(level+1);
 }
 
-QString EbnfSyntax::Node::toString() const
+QString Ast::Node::toString() const
 {
     switch( d_type )
     {
@@ -1007,7 +1007,7 @@ QString EbnfSyntax::Node::toString() const
     return QString();
 }
 
-bool EbnfSyntax::NodeRef::operator==(const EbnfSyntax::NodeRef& rhs) const
+bool Ast::NodeRef::operator==(const Ast::NodeRef& rhs) const
 {
     if( d_node == 0 || rhs.d_node == 0 )
         return false;
@@ -1015,4 +1015,10 @@ bool EbnfSyntax::NodeRef::operator==(const EbnfSyntax::NodeRef& rhs) const
         return true;
     else
         return false; // wegen Lexer::d_symTbl nicht nötig: d_node->d_tok.d_val == rhs.d_node->d_tok.d_val;
+}
+
+
+Ast::Definition::~Definition()
+{
+    if( d_node ) delete d_node;
 }

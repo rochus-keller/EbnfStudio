@@ -59,9 +59,9 @@ bool SynTreeGen::generateTree(const QString& ebnfPath, EbnfSyntax* syn, bool inc
     hout << endl;
     hout << "\t" << "struct SynTree {" << endl;
 
-    typedef QMap<QString,const EbnfSyntax::Definition*> DefSort;
+    typedef QMap<QString,const Ast::Definition*> DefSort;
     DefSort sort;
-    foreach( const EbnfSyntax::Definition* d, syn->getDefs() )
+    foreach( const Ast::Definition* d, syn->getDefs() )
     {
         if( d->d_tok.d_op != EbnfToken::Transparent && d->d_node != 0 )
             // Add the symol unless explicitly suppressed or pseudoterminal, && !d->d_usedBy.isEmpty() )
@@ -322,7 +322,7 @@ bool SynTreeGen::generateTt(const QString& ebnfPath, EbnfSyntax* syn, bool inclu
     {
         hout << endl << "\t\t" << "TT_Nonterminals," << endl;
 
-        foreach( const EbnfSyntax::Definition* d, syn->getDefs() )
+        foreach( const Ast::Definition* d, syn->getDefs() )
         {
             if( d->d_tok.d_op == EbnfToken::Normal && !d->d_usedBy.isEmpty() && d->d_node != 0 )
                 hout << "\t\t" << "R_" << GenUtils::escapeDollars( d->d_tok.d_val.toStr() ) << "," << endl;
@@ -373,7 +373,7 @@ bool SynTreeGen::generateTt(const QString& ebnfPath, EbnfSyntax* syn, bool inclu
     }
     if( includeNt )
     {
-        foreach( const EbnfSyntax::Definition* d, syn->getDefs() )
+        foreach( const Ast::Definition* d, syn->getDefs() )
         {
             if( d->d_tok.d_op == EbnfToken::Normal && !d->d_usedBy.isEmpty() && d->d_node != 0 )
                 bout << "\t\t\t" << "case R_" << GenUtils::escapeDollars( d->d_tok.d_val.toStr() ) <<
@@ -397,7 +397,7 @@ bool SynTreeGen::generateTt(const QString& ebnfPath, EbnfSyntax* syn, bool inclu
     }
     if( includeNt )
     {
-        foreach( const EbnfSyntax::Definition* d, syn->getDefs() )
+        foreach( const Ast::Definition* d, syn->getDefs() )
         {
             const QString name = GenUtils::escapeDollars( d->d_tok.d_val.toStr() );
             if( d->d_tok.d_op == EbnfToken::Normal && !d->d_usedBy.isEmpty() && d->d_node != 0 )

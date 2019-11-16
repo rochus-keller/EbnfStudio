@@ -45,7 +45,7 @@ bool EbnfParser::parse(EbnfLexer* lex)
             EbnfToken op = nextToken();
             if( op.d_type == EbnfToken::Assig )
             {
-                d_def = new EbnfSyntax::Definition(t);
+                d_def = new Ast::Definition(t);
                 if( !d_syn->addDef( d_def ) )
                 {
                     delete d_def;
@@ -120,21 +120,21 @@ bool EbnfParser::error(const EbnfToken& t, const QString& msg)
     return false;
 }
 
-EbnfSyntax::Node*EbnfParser::parseFactor()
+Ast::Node*EbnfParser::parseFactor()
 {
     // factor ::= keyword | delimiter | category | "[" expression "]" | "{" expression "}"
 
-    EbnfSyntax::Node* node = 0;
+    Ast::Node* node = 0;
 
     switch( d_cur.d_type )
     {
     case EbnfToken::Keyword:
     case EbnfToken::Literal:
-        node = new EbnfSyntax::Node( EbnfSyntax::Node::Terminal, d_def, d_cur );
+        node = new Ast::Node( Ast::Node::Terminal, d_def, d_cur );
         nextToken();
         break;
     case EbnfToken::NonTerm:
-        node = new EbnfSyntax::Node( EbnfSyntax::Node::Nonterminal, d_def, d_cur );
+        node = new Ast::Node( Ast::Node::Nonterminal, d_def, d_cur );
         nextToken();
         break;
     case EbnfToken::LBrack:
@@ -153,7 +153,7 @@ EbnfSyntax::Node*EbnfParser::parseFactor()
             }
             if( !checkCardinality(node) )
                 return 0;
-            node->d_quant = EbnfSyntax::Node::ZeroOrOne;
+            node->d_quant = Ast::Node::ZeroOrOne;
             nextToken();
         }
         break;
@@ -173,7 +173,7 @@ EbnfSyntax::Node*EbnfParser::parseFactor()
             }
             if( !checkCardinality(node) )
                 return 0;
-            node->d_quant = EbnfSyntax::Node::One;
+            node->d_quant = Ast::Node::One;
             nextToken();
         }
         break;
@@ -193,7 +193,7 @@ EbnfSyntax::Node*EbnfParser::parseFactor()
             }
             if( !checkCardinality(node) )
                 return 0;
-            node->d_quant = EbnfSyntax::Node::ZeroOrMore;
+            node->d_quant = Ast::Node::ZeroOrMore;
             nextToken();
         }
         break;
@@ -204,11 +204,11 @@ EbnfSyntax::Node*EbnfParser::parseFactor()
     return node;
 }
 
-EbnfSyntax::Node*EbnfParser::parseExpression()
+Ast::Node*EbnfParser::parseExpression()
 {
     // expression ::= term { "|" term }
 
-    EbnfSyntax::Node* node = 0;
+    Ast::Node* node = 0;
 
     const EbnfToken first = d_cur;
     switch( d_cur.d_type )
@@ -228,20 +228,20 @@ EbnfSyntax::Node*EbnfParser::parseExpression()
     }
     if( node == 0 )
         return 0;
-    EbnfSyntax::Node* alternative = 0;
+    Ast::Node* alternative = 0;
     while( d_cur.d_type == EbnfToken::Bar )
     {
         nextToken();
         if( alternative == 0 )
         {
-            alternative = new EbnfSyntax::Node( EbnfSyntax::Node::Alternative, d_def );
+            alternative = new Ast::Node( Ast::Node::Alternative, d_def );
             alternative->d_tok.d_lineNr = first.d_lineNr;
             alternative->d_tok.d_colNr = first.d_colNr;
             alternative->d_subs.append(node);
             node->d_parent = alternative;
             node = alternative;
         }
-        EbnfSyntax::Node* n = parseTerm();
+        Ast::Node* n = parseTerm();
         if( n == 0 )
         {
             delete node;
@@ -253,11 +253,11 @@ EbnfSyntax::Node*EbnfParser::parseExpression()
     return node;
 }
 
-EbnfSyntax::Node*EbnfParser::parseTerm()
+Ast::Node*EbnfParser::parseTerm()
 {
     // term ::= [ predicate ] factor { factor }
 
-    EbnfSyntax::Node* node = 0;
+    Ast::Node* node = 0;
 
     EbnfToken pred;
     if( d_cur.d_type == EbnfToken::Predicate )
@@ -284,13 +284,13 @@ EbnfSyntax::Node*EbnfParser::parseTerm()
     if( node == 0 )
         return 0;
 
-    EbnfSyntax::Node* sequence = 0;
+    Ast::Node* sequence = 0;
     if( pred.isValid() )
     {
-        sequence = new EbnfSyntax::Node( EbnfSyntax::Node::Sequence, d_def );
+        sequence = new Ast::Node( Ast::Node::Sequence, d_def );
         sequence->d_tok.d_lineNr = first.d_lineNr;
         sequence->d_tok.d_colNr = first.d_colNr;
-        sequence->d_subs.append(new EbnfSyntax::Node( EbnfSyntax::Node::Predicate, d_def, pred ));
+        sequence->d_subs.append(new Ast::Node( Ast::Node::Predicate, d_def, pred ));
         sequence->d_subs.back()->d_parent = sequence;
         sequence->d_subs.append(node);
         node->d_parent = sequence;
@@ -306,14 +306,14 @@ EbnfSyntax::Node*EbnfParser::parseTerm()
     {
         if( sequence == 0 )
         {
-            sequence = new EbnfSyntax::Node( EbnfSyntax::Node::Sequence, d_def );
+            sequence = new Ast::Node( Ast::Node::Sequence, d_def );
             sequence->d_tok.d_lineNr = node->d_tok.d_lineNr;
             sequence->d_tok.d_colNr = node->d_tok.d_colNr;
             sequence->d_subs.append(node);
             node->d_parent = sequence;
             node = sequence;
         }
-        EbnfSyntax::Node* n = parseFactor();
+        Ast::Node* n = parseFactor();
         if( n == 0 )
         {
             delete node;
@@ -325,15 +325,15 @@ EbnfSyntax::Node*EbnfParser::parseTerm()
     return node;
 }
 
-bool EbnfParser::checkCardinality(EbnfSyntax::Node* node)
+bool EbnfParser::checkCardinality(Ast::Node* node)
 {
-    if( node->d_quant != EbnfSyntax::Node::One )
+    if( node->d_quant != Ast::Node::One )
     {
         error( d_cur, "contradicting nested quantifiers" );
         delete node;
         return false;
     }
-    if( node->d_type != EbnfSyntax::Node::Sequence && node->d_type != EbnfSyntax::Node::Alternative )
+    if( node->d_type != Ast::Node::Sequence && node->d_type != Ast::Node::Alternative )
     {
         Q_ASSERT( node->d_subs.isEmpty() );
         return true;
@@ -345,8 +345,8 @@ bool EbnfParser::checkCardinality(EbnfSyntax::Node* node)
         return false;
     }
     if( node->d_subs.size() == 1 &&
-            ( node->d_subs.first()->d_type == EbnfSyntax::Node::Sequence
-              || node->d_subs.first()->d_type == EbnfSyntax::Node::Alternative))
+            ( node->d_subs.first()->d_type == Ast::Node::Sequence
+              || node->d_subs.first()->d_type == Ast::Node::Alternative))
     {
         error( d_cur, "container containing only one other sequence or alternative" );
         delete node;

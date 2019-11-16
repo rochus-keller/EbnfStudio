@@ -31,7 +31,7 @@ bool AntlrGen::generate(const QString& atgPath, EbnfSyntax* syn)
     if( syn == 0 || syn->getOrderedDefs().isEmpty() )
         return false;
 
-    const EbnfSyntax::Definition* root = syn->getOrderedDefs()[0];
+    const Ast::Definition* root = syn->getOrderedDefs()[0];
 
     QFile f(atgPath);
     f.open( QIODevice::WriteOnly );
@@ -63,7 +63,7 @@ bool AntlrGen::generate(const QString& atgPath, EbnfSyntax* syn)
 
     for( int i = 0; i < syn->getOrderedDefs().size(); i++ )
     {
-        const EbnfSyntax::Definition* d = syn->getOrderedDefs()[i];
+        const Ast::Definition* d = syn->getOrderedDefs()[i];
         if( d->d_tok.d_op == EbnfToken::Skip || ( i != 0 && d->d_usedBy.isEmpty() ) )
             continue;
         if( d->d_node == 0 )
@@ -90,7 +90,7 @@ bool AntlrGen::generate(const QString& atgPath, EbnfSyntax* syn)
     return true;
 }
 
-void AntlrGen::writeNode(QTextStream& out, EbnfSyntax::Node* node, bool topLevel)
+void AntlrGen::writeNode(QTextStream& out, Ast::Node* node, bool topLevel)
 {
     if( node == 0 )
         return;
@@ -102,29 +102,29 @@ void AntlrGen::writeNode(QTextStream& out, EbnfSyntax::Node* node, bool topLevel
 
     switch( node->d_quant )
     {
-    case EbnfSyntax::Node::One:
-        if( !topLevel && node->d_type == EbnfSyntax::Node::Alternative )
+    case Ast::Node::One:
+        if( !topLevel && node->d_type == Ast::Node::Alternative )
             out << "( ";
-        else if( !topLevel && node->d_type == EbnfSyntax::Node::Sequence && !node->d_tok.d_val.isEmpty() )
+        else if( !topLevel && node->d_type == Ast::Node::Sequence && !node->d_tok.d_val.isEmpty() )
             out << "( ";
         break;
-    case EbnfSyntax::Node::ZeroOrOne:
-    case EbnfSyntax::Node::ZeroOrMore:
+    case Ast::Node::ZeroOrOne:
+    case Ast::Node::ZeroOrMore:
         out << "( ";
         break;
     }
     switch( node->d_type )
     {
-    case EbnfSyntax::Node::Terminal:
+    case Ast::Node::Terminal:
         out << tokenName( node->d_tok.d_val.toStr() ) << " ";
         break;
-    case EbnfSyntax::Node::Nonterminal:
+    case Ast::Node::Nonterminal:
         if( node->d_def == 0 || node->d_def->d_node == 0 )
             out << tokenName(node->d_tok.d_val.toStr()) << " ";
         else
             out << ruleName(node->d_tok.d_val.toStr()) << " ";
         break;
-    case EbnfSyntax::Node::Alternative:
+    case Ast::Node::Alternative:
         for( int i = 0; i < node->d_subs.size(); i++ )
         {
             if( i != 0 )
@@ -137,7 +137,7 @@ void AntlrGen::writeNode(QTextStream& out, EbnfSyntax::Node* node, bool topLevel
             writeNode( out, node->d_subs[i], false );
         }
         break;
-    case EbnfSyntax::Node::Sequence:
+    case Ast::Node::Sequence:
         for( int i = 0; i < node->d_subs.size(); i++ )
         {
             writeNode( out, node->d_subs[i], false );
@@ -148,16 +148,16 @@ void AntlrGen::writeNode(QTextStream& out, EbnfSyntax::Node* node, bool topLevel
     }
     switch( node->d_quant )
     {
-    case EbnfSyntax::Node::One:
-        if( !topLevel && node->d_type == EbnfSyntax::Node::Alternative )
+    case Ast::Node::One:
+        if( !topLevel && node->d_type == Ast::Node::Alternative )
             out << ") ";
-        else if( !topLevel && node->d_type == EbnfSyntax::Node::Sequence && !node->d_tok.d_val.isEmpty() )
+        else if( !topLevel && node->d_type == Ast::Node::Sequence && !node->d_tok.d_val.isEmpty() )
             out << ") ";
         break;
-    case EbnfSyntax::Node::ZeroOrOne:
+    case Ast::Node::ZeroOrOne:
         out << ")? ";
         break;
-    case EbnfSyntax::Node::ZeroOrMore:
+    case Ast::Node::ZeroOrMore:
         out << ")* ";
         break;
     }

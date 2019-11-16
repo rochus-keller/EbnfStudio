@@ -26,7 +26,7 @@
 class FirstFollowSet : public QObject
 {
 public:
-    typedef QHash<const EbnfSyntax::Node*, EbnfSyntax::NodeSet> Lookup;
+    typedef QHash<const Ast::Node*, Ast::NodeSet> Lookup;
 
     explicit FirstFollowSet(QObject *parent = 0);
 
@@ -35,18 +35,18 @@ public:
     EbnfSyntax* getSyntax() const { return d_syn.data(); }
     void clear();
 
-    EbnfSyntax::NodeSet getFirstNodeSet(const EbnfSyntax::Node* , bool cache = true) const;
-    EbnfSyntax::NodeRefSet getFirstSet(const EbnfSyntax::Node* , bool cache = true) const;
-    EbnfSyntax::NodeRefSet getFirstSet( const EbnfSyntax::Definition* ) const;
-    EbnfSyntax::NodeSet getFollowNodeSet( const EbnfSyntax::Node*) const;
-    EbnfSyntax::NodeRefSet getFollowSet( const EbnfSyntax::Definition*) const;
-    EbnfSyntax::NodeRefSet getFollowSet( const EbnfSyntax::Node*) const;
+    Ast::NodeSet getFirstNodeSet(const Ast::Node* , bool cache = true) const;
+    Ast::NodeRefSet getFirstSet(const Ast::Node* , bool cache = true) const;
+    Ast::NodeRefSet getFirstSet( const Ast::Definition* ) const;
+    Ast::NodeSet getFollowNodeSet( const Ast::Node*) const;
+    Ast::NodeRefSet getFollowSet( const Ast::Definition*) const;
+    Ast::NodeRefSet getFollowSet( const Ast::Node*) const;
 protected:
-    EbnfSyntax::NodeSet calculateFirstSet( const EbnfSyntax::Node* ) const;
+    Ast::NodeSet calculateFirstSet( const Ast::Node* ) const;
     void calculateFirstSets();
     void calculateFollowSets();
-    bool calculateFollowSet2(const EbnfSyntax::Node* , bool addRepetitions = true);
-    bool calculateFollowSet( const EbnfSyntax::Definition* );
+    bool calculateFollowSet2(const Ast::Node* , bool addRepetitions = true);
+    bool calculateFollowSet( const Ast::Definition* );
 private:
     friend class EbnfAnalyzer;
     Lookup d_first;
