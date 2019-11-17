@@ -109,13 +109,13 @@ quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& re
 #ifdef _DEBUG
     qDebug() << ws(level).constData() << "visit bin" << curBin << "l/c" <<
                 node->d_tok.d_lineNr << node->d_tok.d_colNr << node->toString()
-             << "level" << level << "k" << k << "res len" << res.size(); // TEST
+             << "level" << level << "k" << k << "reslen" << res.size(); // TEST
 #endif
 
-    if( level > k * 3 )
+    if( level > k * 10 )
     {
 #ifdef _DEBUG
-        qCritical() << ws(level).constData() << "calcLlkFirstSet level depth limit hit";
+        qCritical() << ws(level).constData() << "calcLlkFirstSet level depth limit hit at " << level << k * 10;
 #endif
         return 0;
     }
