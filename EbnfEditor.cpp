@@ -237,9 +237,9 @@ void EbnfEditor::parseText(QByteArray ba)
         if( l.getKeywords().size() != d_hl->getKeywords().size() )
         {
             d_hl->setKeywords( l.getKeywords() );
-            d_rehighlightLock = true;
+            //d_rehighlightLock = true;
             d_hl->rehighlight(); // triggert onTextChanged
-            d_rehighlightLock = false;
+            //d_rehighlightLock = false;
         }
     }
     emit sigSyntaxUpdated();

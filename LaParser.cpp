@@ -205,6 +205,19 @@ LaParser::AstRef LaParser::laFactor()
         n->d_subs << r;
         return n;
     }
+    if( t.d_type == LaLexer::Tok::LPar )
+    {
+        AstRef r = laExpr();
+        if( r.data() == 0 )
+            return r;
+        t = d_lex.nextToken();
+        if( t.d_type != LaLexer::Tok::RPar )
+        {
+            d_err = "expecting ')'";
+            return AstRef();
+        }
+        return r;
+    }
     d_err = "invalid la_factor";
     return AstRef();
 }

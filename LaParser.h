@@ -55,7 +55,7 @@ private:
  *
  * la_expr ::= la_term { '|' la_term }
  * la_term ::= la_factor { '&' la_factor }
- * la_factor ::= Index ':' factor
+ * la_factor ::= Index ':' factor | '(' la_expr ')'
  * expression ::= term { '|' term }
  * term ::= factor { '&' factor }
  * factor ::= String | Literal | '!' factor | '(' expression ')'
