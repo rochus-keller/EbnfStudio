@@ -556,7 +556,7 @@ void EbnfAnalyzer::findAmbiguousAlternatives(Ast::Node* node, FirstFollowSet* se
 
             // TODO: each alternative might have a different predicate type LL or LA
             // currently just assume everything is ok if an LA predicate is present
-            if( predA && !predA->getLa().isEmpty() || predB && !predB->getLa().isEmpty() )
+            if( (predA && !predA->getLa().isEmpty()) || (predB && !predB->getLa().isEmpty()) )
                 continue;
 
             if( ll > 0 )

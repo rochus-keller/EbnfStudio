@@ -282,7 +282,7 @@ LaLexer::Tok LaLexer::nextTokenImp()
     return Tok(Tok::Eof);
 }
 
-int LaLexer::skipWhiteSpace()
+void LaLexer::skipWhiteSpace()
 {
     while( d_pos < d_str.size() && ::isspace(d_str[d_pos]) )
         d_pos++;

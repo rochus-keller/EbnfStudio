@@ -40,7 +40,7 @@ public:
     Tok peekToken(quint8 lookAhead = 1);
 protected:
     Tok nextTokenImp();
-    int skipWhiteSpace();
+    void skipWhiteSpace();
     Tok ident();
     Tok literal();
     Tok index();

@@ -1,0 +1,66 @@
+# author: Rochus Keller (me@rochus-keller.ch)
+# License: GPL
+# See https://github.com/rochus-keller/BUSY/blob/main/README.md on how to use this file
+
+if busy_version < "2023-01-15" {
+    error("this version of BUSY is not compatible with this build")
+}
+
+submod qt = ../LeanQt (HAVE_ITEMVIEWS)
+
+let run_moc : Moc {
+    .sources += [
+        ./EbnfEditor.h
+        ./EbnfErrors.h
+        ./MainWindow.h
+        ../GuiTools/CodeEditor.h
+        ../GuiTools/UiFunction.h
+        ../GuiTools/AutoShortcut.h
+        ../GuiTools/AutoMenu.h
+    ]
+}
+
+let run_rcc : Rcc {
+    .deps += qt.copy_rcc;
+    .tool_dir = root_build_dir + relpath(qt);
+    .sources += ./EbnfStudio.qrc
+}
+
+let exe ! : Executable {
+    .configs += [ qt.qt_client_config ]
+    .sources = [
+		./main.cpp
+        ./MainWindow.cpp 
+		./EbnfEditor.cpp 
+		./EbnfHighlighter.cpp 
+		./EbnfLexer.cpp 
+		./EbnfToken.cpp 
+		./EbnfSyntax.cpp 
+		./EbnfParser.cpp 
+		./EbnfErrors.cpp 
+		./EbnfAnalyzer.cpp 
+		./SynTreeGen.cpp 
+		./HtmlSyntax.cpp 
+		./SyntaxTreeMdl.cpp 
+		./GenUtils.cpp 
+		./CocoGen.cpp 
+		./FirstFollowSet.cpp 
+		./AntlrGen.cpp 
+		./LlgenGen.cpp 
+        ./SyntaxTools.cpp
+		./LaParser.cpp
+        ../GuiTools/AutoMenu.cpp
+        ../GuiTools/AutoShortcut.cpp
+        ../GuiTools/NamedFunction.cpp
+        ../GuiTools/UiFunction.cpp
+        ../GuiTools/CodeEditor.cpp
+    ]
+    .include_dirs += [ . .. ]
+    .deps += [ qt.copy_rcc qt.libqt run_rcc run_moc ]
+    if target_os == `win32 {
+        .deps += qt.libqtwinmain
+    }
+    .name = "EbnfStudio"
+}
+
+

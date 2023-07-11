@@ -160,7 +160,7 @@ static bool lessThan( const QString& lhs, const QString& rhs )
 {
     const bool lhsAlnum = GenUtils::containsAlnum(lhs);
     const bool rhsAlnum = GenUtils::containsAlnum(rhs);
-    if( lhsAlnum && rhsAlnum || !lhsAlnum && !rhsAlnum )
+    if( (lhsAlnum && rhsAlnum) || (!lhsAlnum && !rhsAlnum) )
         return lhs < rhs;
     else
         return !lhsAlnum && rhsAlnum;

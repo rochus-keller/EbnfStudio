@@ -31,10 +31,8 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QInputDialog>
-#include <QPrinter>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QPrintDialog>
 #include <QSettings>
 #include <QFontDialog>
 #include <QShortcut>

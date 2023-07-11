@@ -8,7 +8,7 @@ EbnfStudio is work in progress. It is currently used as a replacement for Verilo
 ![alt text](http://software.rochus-keller.ch/ebnfstudio_screenshot_1.png "EbnfStudio Screenshot")
 
 ### Build Steps
-Follow these steps if you intend to build EbnfStudio:
+Follow these steps if you intend to build EbnfStudio using Qt:
 
 1. Create a directory; let's call it BUILD_DIR
 1. Download the EbnfStudio source code from https://github.com/rochus-keller/EbnfStudio/archive/master.zip and unpack it to the BUILD_DIR; rename the subdirectory to "EbnfStudio".
@@ -17,6 +17,13 @@ Follow these steps if you intend to build EbnfStudio:
 1. Run make; after a couple of seconds you will find the executable in the tmp subdirectory.
 
 Alternatively you can open EbnfStudio.pro using QtCreator and build it there.
+
+Alternatively you can use LeanQt and BUSY to build EbnfStudio from scratch with no other dependency than a C++98 compiler. To do so, execute the first three steps above, then continue here:
+
+1. Download https://github.com/rochus-keller/LeanQt/archive/refs/heads/master.zip and unpack it to the BUILD_DIR; rename the resulting directory to "LeanQt".
+1. Download https://github.com/rochus-keller/BUSY/archive/refs/heads/master.zip and unpack it to the BUILD_DIR; rename the resulting directory to "build".
+1. Open a command line in the "build" directory and type `cc *.c -O2 -lm -o lua` or `cl /O2 /MD /Fe:lua.exe *.c` depending on whether you are on a Unix or Windows machine; wait a few seconds until the Lua executable is built.
+1. Now type `./lua build.lua ../EbnfStudio` (or `lua build.lua ../EbnfStudio` on Windows); wait until the executable is built; you find it in the output subdirectory.
 
 NOTE: there seems to be an issue on x86-64 bit systems when optimization is on; if you encounter this issue please reduce optimization level.
 
