@@ -106,7 +106,8 @@ quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& re
     if( node == 0 || node->doIgnore() )
         return 0;
 
-#ifdef _DEBUG
+//#ifdef _DEBUG
+#if 0
     qDebug() << ws(level).constData() << "visit bin" << curBin << "l/c" <<
                 node->d_tok.d_lineNr << node->d_tok.d_colNr << node->toString()
              << "level" << level << "k" << k << "reslen" << res.size(); // TEST
@@ -125,7 +126,8 @@ quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& re
     case Ast::Node::Terminal:
         resize( res, curBin );
         res[curBin].insert( node ); // hier ist dieser node gemeint, nicht Follow(node)!
-#ifdef _DEBUG
+//#ifdef _DEBUG
+#if 0
         qDebug() << ws(level).constData() << "insert" << curBin <<
                     node->d_tok.d_val.toBa() << node->d_tok.d_lineNr << node->d_tok.d_colNr; // TEST
 #endif
@@ -139,7 +141,8 @@ quint16 EbnfAnalyzer::calcLlkFirstSetImp(quint16 k, quint16 curBin, LlkNodes& re
             // wie Terinal
             resize( res, curBin );
             res[curBin].insert( node );
-#ifdef _DEBUG
+//#ifdef _DEBUG
+#if 0
             qDebug() << ws(level).constData() << "insert" << curBin <<
                         node->d_tok.d_val.toBa() << node->d_tok.d_lineNr << node->d_tok.d_colNr; // TEST
 #endif
@@ -222,7 +225,8 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
     else
         visited.insert(node);
 
-#ifdef _DEBUG
+//#ifdef _DEBUG
+#if 0
     qDebug() << ws(level).constData() << "visit bin" << curBin << "l/c" <<
                 node->d_tok.d_lineNr << node->d_tok.d_colNr << node->toString()
              << "level" << level << "k" << k << "res len" << res.size(); // TEST
@@ -239,7 +243,8 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
         case Ast::Node::Terminal:
             resize( res, curBin );
             res[curBin].insert( node ); // hier ist dieser node gemeint, nicht Follow(node)!
-#ifdef _DEBUG
+//#ifdef _DEBUG
+#if 0
             qDebug() << ws(level).constData() << "insert" << curBin <<
                         node->d_tok.d_val.data() << node->d_tok.d_lineNr << node->d_tok.d_colNr; // TEST
 #endif
@@ -252,7 +257,8 @@ void EbnfAnalyzer::calcLlkFirstSet2Imp(quint16 k, int curBin, int level, LlkNode
                 // wie Terinal
                 resize( res, curBin );
                 res[curBin].insert( node );
-#ifdef _DEBUG
+//#ifdef _DEBUG
+#if 0
                 qDebug() << ws(level).constData() << "insert" << curBin <<
                             node->d_tok.d_val.data() << node->d_tok.d_lineNr << node->d_tok.d_colNr; // TEST
 #endif
@@ -635,8 +641,6 @@ void EbnfAnalyzer::findAmbiguousOptionals(Ast::Node* seq, FirstFollowSet* set, E
             continue;
 
         // else
-        //if( seq->d_owner->d_tok.d_val == "list_of_param_assignments" )
-        //    qDebug() << "hit";
         const Ast::Node* pred = EbnfSyntax::firstPredicateOf(a);
         int ll = 0;
         if( pred != 0 )

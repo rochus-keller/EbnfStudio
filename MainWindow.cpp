@@ -31,6 +31,7 @@
 #include "LlgenGen.h"
 #include "FirstFollowSet.h"
 #include "AntlrGen.h"
+#include "CppGen.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QtDebug>
@@ -434,6 +435,18 @@ void MainWindow::onGenCoco()
     SynTreeGen::generateTree( d_edit->getPath(), syn, true );
 }
 
+void MainWindow::onGenCpp()
+{
+    ENABLED_IF( !d_edit->getPath().isEmpty() );
+    loadTokMap();
+    CppGen gen;
+    QFileInfo info(d_edit->getPath());
+    EbnfSyntax* syn = d_edit->getSyntax();
+    gen.generate( info.absoluteDir().absoluteFilePath( info.completeBaseName() + ".atg"), syn, d_tbl );
+    SynTreeGen::generateTt( d_edit->getPath(), syn, true, false );
+    SynTreeGen::generateTree( d_edit->getPath(), syn, true );
+}
+
 void MainWindow::onGenAntlr()
 {
     ENABLED_IF( !d_edit->getPath().isEmpty() );
@@ -659,6 +672,7 @@ void MainWindow::createMenus()
     analyze->addCommand( "Find ambiguities", this, SLOT(onFindAmbig() ), tr("CTRL+SHIFT+A"), true );
 
     Gui::AutoMenu* generate = new Gui::AutoMenu( tr("Generate"), this, true );
+    generate->addCommand( "Generate C++ Parser", this, SLOT(onGenCpp()) );
     generate->addCommand( "Generate SynTree", this, SLOT(onGenSynTree()) );
     generate->addCommand( "Generate TokenTypes", this, SLOT(onGenTt()) );
     generate->addCommand( "Generate Html", this, SLOT(onGenHtml()) );

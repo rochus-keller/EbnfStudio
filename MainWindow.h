@@ -55,6 +55,7 @@ protected slots:
     void onGenTt();
     void onGenHtml();
     void onGenCoco();
+    void onGenCpp();
     void onGenAntlr();
     void onGenLlgen();
     void onOutputFirstSet();

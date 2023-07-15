@@ -49,6 +49,7 @@ let exe ! : Executable {
 		./LlgenGen.cpp 
         ./SyntaxTools.cpp
 		./LaParser.cpp
+		./CppGen.cpp
         ../GuiTools/AutoMenu.cpp
         ../GuiTools/AutoShortcut.cpp
         ../GuiTools/NamedFunction.cpp

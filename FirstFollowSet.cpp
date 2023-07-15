@@ -49,6 +49,8 @@ void FirstFollowSet::clear()
 
 Ast::NodeSet FirstFollowSet::getFirstNodeSet(const Ast::Node* node, bool cache) const
 {
+    if( node && node->d_type == Ast::Node::Nonterminal && node->d_def && node->d_def->d_node )
+        node = node->d_def->d_node;
     Ast::NodeSet res = d_first.value(node);
     if( res.isEmpty() )
     {
@@ -77,6 +79,8 @@ Ast::NodeRefSet FirstFollowSet::getFirstSet(const Ast::Definition* d) const
 
 Ast::NodeSet FirstFollowSet::getFollowNodeSet(const Ast::Node* node) const
 {
+    if( node && node->d_type == Ast::Node::Nonterminal && node->d_def && node->d_def->d_node )
+        node = node->d_def->d_node;
     Ast::NodeSet res = d_follow.value(node);
     /* Wenn man die Repeats hier berechnet, kommt nicht dasselbe raus wie wenn man sie in calculateFollowSet2 berechnet!
     if( node->d_quant == Ast::Node::ZeroOrMore && doRepeats )
