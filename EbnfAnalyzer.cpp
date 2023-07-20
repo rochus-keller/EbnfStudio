@@ -472,6 +472,48 @@ void EbnfAnalyzer::calcLlkFirstSet(quint16 k, EbnfAnalyzer::LlkNodes& res, const
     calcLlkFirstSetImp( k, 0, res, node, tbl, 0 );
 }
 
+void EbnfAnalyzer::calcLlkFirstTree(quint16 k, Ast::NodeTree* nt, const Ast::Node* node, FirstFollowSet* tbl)
+{
+    // TODO: this is unfinished work; the goal is to have a reliable LL(k) algorithm which works better than
+    // the current \LL:k\, which is only a primitive approximation
+
+    if( nt == 0 || node == 0 || node->doIgnore() || nt->d_k >= k )
+        return;
+
+    switch( node->d_type )
+    {
+    case Ast::Node::Terminal:
+        nt->addLeaf(node);
+        return;
+
+    case Ast::Node::Nonterminal:
+        if( node->d_def && node->d_def->d_node )
+        {
+            calcLlkFirstTree(k, nt, node->d_def->d_node, tbl );
+        }else
+            // wie Terinal
+            nt->addLeaf(node);
+        return;
+
+    case Ast::Node::Sequence:
+        for( int i = 0; i < node->d_subs.size(); i++ )
+        {
+            calcLlkFirstTree(k, nt, node->d_subs[i], tbl);
+        }
+        return;
+
+    case Ast::Node::Alternative:
+        for( int i = 0; i < node->d_subs.size(); i++ )
+        {
+            calcLlkFirstTree(k, nt, node->d_subs[i], tbl);
+        }
+        return;
+
+    default:
+        break;
+    }
+}
+
 void EbnfAnalyzer::calcLlkFirstSet2(quint16 k, EbnfAnalyzer::LlkNodes& res, const Ast::Node* node, FirstFollowSet* tbl)
 {
     QSet<const Ast::Node*> visited;

@@ -27,7 +27,7 @@
 #include <QDir>
 #include <QtDebug>
 
-CppGen::CppGen()
+CppGen::CppGen():d_tbl(0),d_syn(0),d_pseudoKeywords(false)
 {
 
 }
@@ -41,11 +41,12 @@ bool CppGen::generate(const QString& ebnfPath, EbnfSyntax* syn, FirstFollowSet* 
     tbl->setSyntax(syn);
 
     const QByteArray nameSpace = syn->getPragmaFirst("%namespace").toBa();
-    const QByteArray nameSpace2 = nameSpace.isEmpty() ? nameSpace : ( nameSpace + "::" );
+    // const QByteArray nameSpace2 = nameSpace.isEmpty() ? nameSpace : ( nameSpace + "::" );
     QString module = syn->getPragmaFirst("%module").toStr();
     if( !module.isEmpty() )
         module = module + "/";
-    const EbnfSyntax::SymList suppress = syn->getPragma("%suppress");
+    // const EbnfSyntax::SymList suppress = syn->getPragma("%suppress");
+    d_pseudoKeywords = !syn->getPragma("%pseudo_keywords").isEmpty(); // exact value doesn't matter
 
     d_tbl = tbl;
     d_syn = syn;
@@ -109,9 +110,9 @@ bool CppGen::generate(const QString& ebnfPath, EbnfSyntax* syn, FirstFollowSet* 
     hout << "\t\t" << "Token la;" << endl;
     hout << "\t\t" << "Scanner* scanner;" << endl;
     hout << "\t\t" << "void next();" << endl;
-    hout << "\t\t" << "int peek(int off);" << endl;
+    hout << "\t\t" << "Token peek(int off);" << endl;
     hout << "\t\t" << "void invalid(const char* what);" << endl;
-    hout << "\t\t" << "void expect(int tt, const char* where);" << endl;
+    hout << "\t\t" << "void expect(int tt, bool pkw, const char* where);" << endl;
 
     hout << "\t" << "};" << endl;
 
@@ -226,21 +227,25 @@ bool CppGen::generate(const QString& ebnfPath, EbnfSyntax* syn, FirstFollowSet* 
     bout << "\t" << "}" << endl;
     bout << "}" << endl << endl;
 
-    bout << "int Parser::peek(int off) {" << endl;
+    bout << "Token Parser::peek(int off) {" << endl;
     bout << "\t" << "if( off == 1 )" << endl;
-    bout << "\t\t" << "return la.d_type;" << endl;
+    bout << "\t\t" << "return la;" << endl;
     bout << "\t" << "else if( off == 0 )" << endl;
-    bout << "\t\t" << "return cur.d_type;" << endl;
+    bout << "\t\t" << "return cur;" << endl;
     bout << "\t" << "else" << endl;
-    bout << "\t\t" << "return scanner->peek(off-1).d_type;" << endl;
+    bout << "\t\t" << "return scanner->peek(off-1);" << endl;
     bout << "}" << endl << endl;
 
     bout << "void Parser::invalid(const char* what) {" << endl;
-    // TODO
+    bout << "\t" << "errors << Error(QString(\"invalid %1\").arg(what),"
+                    "la.d_lineNr, la.d_colNr, la.d_sourcePath);" << endl;
     bout << "}" << endl << endl;
 
-    bout << "void Parser::expect(int tt, const char* where) {" << endl;
-    bout << "\t" << "if( la.d_type == tt) next(); " << endl;
+    bout << "void Parser::expect(int tt, bool pkw, const char* where) {" << endl;
+    bout << "\t" << "if( la.d_type == tt";
+    if( d_pseudoKeywords )
+        bout << " || la.d_code == tt";
+    bout << ") next(); " << endl;
     bout << "\t" << "else errors << Error(QString(\"'%1' expected in %2\")"
             ".arg(tokenTypeString(tt)).arg(where),"
             "la.d_lineNr, la.d_colNr, la.d_sourcePath);" << endl;
@@ -269,6 +274,16 @@ static inline QByteArray ws(int level)
     return QByteArray(level+1,'\t');
 }
 
+static inline bool containsNoPseudoKeyword( const Ast::NodeSet& ns )
+{
+    foreach( const Ast::Node* n, ns)
+    {
+        if( n->d_literal && GenUtils::looksLikeKeyword(n->d_tok.d_val.toStr()) )
+            return false;
+    }
+    return true;
+}
+
 void CppGen::writeCond( QTextStream& out, bool loop, const QList<const Ast::Node*>& firsts )
 {
     out << (loop ? "while" : "if") << "( ";
@@ -280,7 +295,10 @@ void CppGen::writeCond( QTextStream& out, bool loop, const QList<const Ast::Node
         switch( n->d_type )
         {
         case Ast::Node::Terminal:
-            out << "la.d_type == Tok_" << GenUtils::symToString( n->d_tok.d_val.toStr() );
+            if( d_pseudoKeywords && n->d_literal && GenUtils::looksLikeKeyword(n->d_tok.d_val.toStr()) )
+                out << "la.d_code == Tok_" << GenUtils::symToString( n->d_tok.d_val.toStr() );
+            else
+                out << "la.d_type == Tok_" << GenUtils::symToString( n->d_tok.d_val.toStr() );
             break;
         case Ast::Node::Nonterminal:
             if( n->d_def == 0 || n->d_def->d_node == 0 )
@@ -288,7 +306,15 @@ void CppGen::writeCond( QTextStream& out, bool loop, const QList<const Ast::Node
                 // e.g. a token like ident, unsigned_real, decimal_int, etc.
                 out << "la.d_type == Tok_" << GenUtils::symToString( n->d_tok.d_val.toStr() );
             else
+            {
                 out << "FIRST_" << GenUtils::symToString( n->d_tok.d_val.toStr() ) << "(la.d_type)";
+                if( d_pseudoKeywords && !containsNoPseudoKeyword(d_tbl->getFirstNodeSet(n)) )
+                    out << " || FIRST_" << GenUtils::symToString( n->d_tok.d_val.toStr() ) << "(la.d_code)";
+                    // NOTE about adding "&& la.d_code == 0":
+                    // with this a simple_statement like "inc(result);" doesn't work
+                    // without this "public" in class_type is interpreted as field_definition
+                    // so we leave it out and add an \LA to avoid eating pseudo keywords as idents where necessary
+            }
             break;
         case Ast::Node::Predicate:
             handlePredicate(out, n);
@@ -334,6 +360,7 @@ void CppGen::writeNode(QTextStream& out, Ast::Node* node, int level)
     {
     case Ast::Node::Terminal:
         out << ws(level) << "expect(Tok_" << GenUtils::symToString( node->d_tok.d_val.toStr() )
+            << ", " << ( node->d_literal && GenUtils::looksLikeKeyword(node->d_tok.d_val.toStr()) ? "true" : "false" )
             << ", \"" << node->d_owner->d_tok.d_val.toBa() << "\");" << endl;
         break;
     case Ast::Node::Nonterminal:
@@ -341,7 +368,7 @@ void CppGen::writeNode(QTextStream& out, Ast::Node* node, int level)
             // this looks like a nt but is actually a terminal,
             // e.g. a token like ident, unsigned_real, decimal_int, etc.
             out << ws(level) << "expect(Tok_" << GenUtils::symToString( node->d_tok.d_val.toStr() )
-                << ", \"" << node->d_owner->d_tok.d_val.toBa() << "\");" << endl;
+                << ", false, \"" << node->d_owner->d_tok.d_val.toBa() << "\");" << endl;
         else
             out << ws(level) << GenUtils::symToString(node->d_tok.d_val.toStr()) << "(st);" << endl;
         break;
@@ -378,19 +405,22 @@ void CppGen::writeNode(QTextStream& out, Ast::Node* node, int level)
     }
 }
 
-static void renderLaSub( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax* syn, int la )
+static void renderLaSub( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax* syn, int la, bool pseudoKeywords )
 {
     switch( ast->d_type )
     {
     case LaParser::Ast::Ident:
-        out << "peek(" << la << ") == " << "Tok_" << GenUtils::symToString(ast->d_val) << " ";
+        out << "peek(" << la << ").d_type == " << "Tok_" << GenUtils::symToString(ast->d_val) << " ";
         break;
     case LaParser::Ast::Literal:
-        out << "peek(" << la << ") == " << "Tok_" << GenUtils::symToString(ast->d_val) << " ";
+        if( pseudoKeywords && GenUtils::looksLikeKeyword(ast->d_val) )
+            out << "peek(" << la << ").d_code == " << "Tok_" << GenUtils::symToString(ast->d_val) << " ";
+        else
+            out << "peek(" << la << ").d_type == " << "Tok_" << GenUtils::symToString(ast->d_val) << " ";
         break;
     case LaParser::Ast::Not:
         out << "!( ";
-        renderLaSub(out,ast->d_subs.first().data(),syn,la);
+        renderLaSub(out,ast->d_subs.first().data(),syn,la, pseudoKeywords);
         out << ") ";
         break;
     case LaParser::Ast::Or:
@@ -400,7 +430,7 @@ static void renderLaSub( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax*
         {
              if( i != 0 )
                  out << "|| ";
-             renderLaSub(out,ast->d_subs[i].data(),syn, la);
+             renderLaSub(out,ast->d_subs[i].data(),syn, la, pseudoKeywords);
         }
         if( ast->d_subs.size() > 1 )
             out << ") ";
@@ -410,7 +440,7 @@ static void renderLaSub( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax*
         {
              if( i != 0 )
                  out << "&& ";
-             renderLaSub(out,ast->d_subs[i].data(),syn,la);
+             renderLaSub(out,ast->d_subs[i].data(),syn,la, pseudoKeywords);
         }
         break;
     default:
@@ -419,12 +449,12 @@ static void renderLaSub( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax*
     }
 }
 
-static void renderLaExpr( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax* syn )
+static void renderLaExpr( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax* syn, bool pseudoKeywords )
 {
     switch( ast->d_type )
     {
     case LaParser::Ast::La:
-        renderLaSub( out,ast->d_subs.first().data(),syn,ast->d_val.toInt() );
+        renderLaSub( out,ast->d_subs.first().data(),syn,ast->d_val.toInt(), pseudoKeywords );
         break;
     case LaParser::Ast::Or:
         if( ast->d_subs.size() > 1 )
@@ -433,7 +463,7 @@ static void renderLaExpr( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax
         {
              if( i != 0 )
                  out << "|| ";
-             renderLaExpr(out,ast->d_subs[i].data(),syn);
+             renderLaExpr(out,ast->d_subs[i].data(),syn, pseudoKeywords);
         }
         if( ast->d_subs.size() > 1 )
             out << ") ";
@@ -443,7 +473,7 @@ static void renderLaExpr( QTextStream& out, const LaParser::Ast* ast, EbnfSyntax
         {
              if( i != 0 )
                  out << "&& ";
-             renderLaExpr(out,ast->d_subs[i].data(),syn);
+             renderLaExpr(out,ast->d_subs[i].data(),syn, pseudoKeywords);
         }
         break;
     default:
@@ -462,17 +492,16 @@ void CppGen::handlePredicate(QTextStream& out, const Ast::Node* pred)
             return; // error was already reported
 
         out << "( ";
-        renderLaExpr( out, p.getLaExpr().constData(), d_syn );
+        renderLaExpr( out, p.getLaExpr().constData(), d_syn, d_pseudoKeywords );
         out << ") ";
 
         return;
     }
-    const int ll = pred->getLlk();
+    int ll = pred->getLlk();
     if( ll > 0 )
     {
         EbnfAnalyzer::LlkNodes llkNodes;
         EbnfAnalyzer::calcLlkFirstSet( ll, llkNodes,pred->d_parent, d_tbl );
-        //EbnfAnalyzer::calcLlkFirstSet2( ll, llkNodes,sequence, d_tbl );
         if( llkNodes.isEmpty() )
             return;
         out << "( ";
@@ -482,26 +511,42 @@ void CppGen::handlePredicate(QTextStream& out, const Ast::Node* pred)
                 out << "&& ";
             if( llkNodes[i].size() > 1 )
                 out << "( ";
-            QStringList names;
+            QMap<QString,const Ast::Node*> names;
             Ast::NodeRefSet::const_iterator j;
             for( j = llkNodes[i].begin(); j != llkNodes[i].end(); ++j )
-                names << "Tok_" + GenUtils::symToString( (*j).d_node->d_tok.d_val.toStr() );
-            names.sort(Qt::CaseInsensitive);
+                names.insert("Tok_" + GenUtils::symToString( (*j).d_node->d_tok.d_val.toStr() ), (*j).d_node );
             if( names.isEmpty() )
                 out << "false ";
             else
-                for( int j = 0; j < names.size(); j++ )
+            {
+                QMap<QString,const Ast::Node*>::const_iterator j;
+                for( j = names.begin(); j != names.end(); ++j )
                 {
-                    if( j != 0 )
+                    if( j != names.begin() )
                         out << "|| ";
-                    out << "peek(" << i+1 << ") == " << names[j] << " ";
+                    if( d_pseudoKeywords && j.value()->d_literal && GenUtils::looksLikeKeyword(j.value()->d_tok.d_val.toStr()) )
+                        out << "peek(" << i+1 << ").d_code == " << j.key() << " ";
+                    else
+                        out << "peek(" << i+1 << ").d_type == " << j.key() << " ";
                 }
+            }
             if( llkNodes[i].size() > 1 )
                 out << ") ";
         }
         out << ") ";
-    }else
-        qWarning() << "CocoGen unknown predicate" << pred->d_tok.d_val.toStr();
+        return;
+    }
+#if 0
+    ll = pred->getLl();
+    if( ll > 0 )
+    {
+        // TODO: this is unfinished work
+        Ast::NodeTree nt;
+        EbnfAnalyzer::calcLlkFirstSet(ll, &nt, pred->d_parent, d_tbl );
+    }
+#endif
+    else
+        qWarning() << "CppGen unknown predicate" << pred->d_tok.d_val.toStr();
 }
 
 QList<const Ast::Node*> CppGen::findFirstsOf(Ast::Node* node) const

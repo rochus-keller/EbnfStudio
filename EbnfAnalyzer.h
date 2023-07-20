@@ -35,8 +35,12 @@ public:
 
     typedef QList<Ast::NodeRefSet> LlkNodes;
     static Ast::NodeRefSet intersectAll( const LlkNodes& lhs, const LlkNodes& rhs );
+
+    // NOTE: this is only an approximation
     static void calcLlkFirstSet(quint16 k, LlkNodes&, const Ast::Node* node, FirstFollowSet* );
     static void calcLlkFirstSet2(quint16 k, LlkNodes&, const Ast::Node* node, FirstFollowSet* );
+
+    static void calcLlkFirstTree(quint16 k, Ast::NodeTree*, const Ast::Node* node, FirstFollowSet* );
 
     static void checkForAmbiguity( FirstFollowSet*, EbnfErrors*);
     static void checkForAmbiguity( Ast::Node*, FirstFollowSet*, EbnfErrors*, bool recursive = true );

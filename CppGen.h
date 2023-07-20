@@ -39,6 +39,7 @@ protected:
 private:
     FirstFollowSet* d_tbl;
     EbnfSyntax* d_syn;
+    bool d_pseudoKeywords;
 };
 
 #endif // CPPGEN_H

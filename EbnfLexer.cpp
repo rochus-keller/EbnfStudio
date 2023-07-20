@@ -84,17 +84,7 @@ EbnfToken EbnfLexer::nextTokenImp()
             }
         }else if( ch == '\'' )
         {
-            EbnfToken t = literal();
-//            if( potentialProduction ) // what is 'literal' ::= good for?
-//            {
-//                skipWhiteSpace();
-//                if( lookAhead(0) == ':' && lookAhead(1) == ':' && lookAhead(2) == '=' )
-//                {
-//                    t.d_type = EbnfToken::Production;
-//                    return t;
-//                }
-//            }else
-                return t;
+            return literal();
         }
 
         if( potentialProduction )
@@ -287,7 +277,7 @@ EbnfToken EbnfLexer::literal()
     QString str = d_line.mid(d_colNr + 1, off - 1 );
     str.replace("\\'", "'");
     str.replace("\\\\", "\\");
-    EbnfToken t = token( EbnfToken::Literal, off+1, str.toUtf8() );
+    EbnfToken t = token( EbnfToken::Literal, off+1, str.toUtf8() ); // remove enclosing ''
     t.d_op = readOp();
     return t;
 }

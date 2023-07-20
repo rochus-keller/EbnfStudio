@@ -42,12 +42,25 @@ QString GenUtils::escapeDollars(QString name)
 
 bool GenUtils::containsAlnum( const QString& str )
 {
+    // '$' is not considered isLetterOrNumber
     for( int i = 0; i < str.size(); i++ )
     {
         if( str[i].isLetterOrNumber() )
             return true;
     }
     return false;
+}
+
+bool GenUtils::looksLikeKeyword(const QString& str)
+{
+    if( str.isEmpty() || !str[0].isLetter() )
+        return false;
+    for( int i = 1; i < str.size(); i++ )
+    {
+        if( !str[i].isLetterOrNumber() && str[i] != '_' )
+            return false;
+    }
+    return true;
 }
 
 QString GenUtils::symToString(const QString& str)
@@ -68,7 +81,7 @@ QString GenUtils::symToString(const QString& str)
     if( it != s_tokMap.end() )
         return it.value();
 
-    if( containsAlnum(str) )
+    if( containsAlnum(str) ) // as soon as there
         return escapeDollars(str);
 
     QString res;

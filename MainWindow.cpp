@@ -47,6 +47,7 @@
 #include <QDateTime>
 #include <QVBoxLayout>
 #include <QLabel>
+#include <QClipboard>
 #include <GuiTools/AutoMenu.h>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -55,6 +56,8 @@ MainWindow::MainWindow(QWidget *parent)
     d_tbl = new FirstFollowSet(this);
     d_edit = new EbnfEditor(this);
     d_edit->installDefaultPopup();
+    d_edit->setPaintIndents(false);
+    d_edit->setCharPerTab(4);
     setCentralWidget(d_edit);
 
     setDockNestingEnabled(true);
@@ -137,6 +140,7 @@ void MainWindow::onErrors()
         item->setData(0, Qt::UserRole, errs[i].d_line );
         item->setData(0, Qt::UserRole+1, errs[i].d_data );
         item->setData(1, Qt::UserRole, errs[i].d_col );
+        item->setData(1, Qt::UserRole+1, errs[i].d_isErr );
     }
     if( errs.size() )
         d_errView->parentWidget()->show();
@@ -629,6 +633,34 @@ void MainWindow::onTransformAlgolEbnf()
     SyntaxTools::transformAlgolEbnf(in,out);
 }
 
+void MainWindow::onCopyIssue()
+{
+    QList<QTreeWidgetItem*> sel = d_errView->selectedItems();
+    ENABLED_IF(!sel.isEmpty());
+
+    QString text = sel.first()->text(0) + ": " + sel.first()->text(1);
+    QApplication::clipboard()->setText(text);
+}
+
+void MainWindow::onCopyAllIssues()
+{
+    ENABLED_IF(true);
+
+    QString text;
+    QTextStream out(&text);
+    int errs = 0;
+    for( int i = 0; i < d_errView->topLevelItemCount(); i++ )
+    {
+        QTreeWidgetItem* item = d_errView->topLevelItem(i);
+        out << item->text(0) << ": " << item->text(1) << endl;
+        if( item->data(1, Qt::UserRole+1).toBool() )
+            errs++;
+    }
+    out << errs << " errors, " << ( d_errView->topLevelItemCount() - errs ) << " warnings" << endl;
+    out.flush();
+    QApplication::clipboard()->setText(text);
+}
+
 void MainWindow::createMenus()
 {
     Gui::AutoMenu* file = new Gui::AutoMenu( tr("File"), this, true );
@@ -713,6 +745,11 @@ void MainWindow::createIssues()
     addDockWidget( Qt::BottomDockWidgetArea, dock );
     connect(d_errView, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)), this, SLOT(onErrorsDblClicked()) );
     connect( new QShortcut( tr("ESC"), this ), SIGNAL(activated()), dock, SLOT(hide()) );
+
+    Gui::AutoMenu* pop = new Gui::AutoMenu(d_errView,true);
+    pop->addCommand( "Copy issue", this, SLOT(onCopyIssue()) );
+    pop->addCommand( "Copy all issues", this, SLOT(onCopyAllIssues()) );
+
 }
 
 void MainWindow::createTree()

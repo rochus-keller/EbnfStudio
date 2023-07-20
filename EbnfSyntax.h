@@ -78,13 +78,14 @@ namespace Ast
         quint8 d_quant;
     #endif
         bool d_leftRecursive;
+        bool d_literal;
         NodeList d_subs; // owned
         NodeList d_pathToDef;
         Definition* d_owner;
         Definition* d_def; // resolved nonterminal
         Node* d_parent; // TODO: ev. unnötig; man kann damit bottom up über Sequence hinweg schauen
-        Node(Type t, Definition* d, const EbnfToken& tok = EbnfToken()):Symbol(tok),d_type(t),
-            d_quant(One),d_owner(d),d_def(0),d_parent(0),d_leftRecursive(false){}
+        Node(Type t, Definition* d, const EbnfToken& tok = EbnfToken(), bool lit = false):Symbol(tok),d_type(t),
+            d_quant(One),d_owner(d),d_def(0),d_parent(0),d_leftRecursive(false),d_literal(lit){}
         Node(Type t, Node* parent, const EbnfToken& tok = EbnfToken()):Symbol(tok),d_type(t),
             d_quant(One),d_owner(parent->d_owner),d_def(0),d_parent(parent),d_leftRecursive(false){ parent->d_subs.append(this); }
         ~Node();
@@ -94,6 +95,7 @@ namespace Ast
         bool isAnyReachable() const;
         const Node* getNext(int* index = 0) const;
         int getLlk() const; // 0..invalid
+        int getLl() const; // 0..invalid
         QByteArray getLa() const;
         void dump(int level = 0) const;
         QString toString() const;
@@ -109,6 +111,29 @@ namespace Ast
     };
     typedef QSet<NodeRef> NodeRefSet;
     typedef QList<NodeRef> NodeRefList;
+
+    struct NodeTree
+    {
+        const Node* d_node;
+        quint8 d_k;
+        QList<NodeTree*> d_leafs;
+        NodeTree(quint8 k = 0, const Node* n=0):d_node(n),d_k(k){}
+        ~NodeTree()
+        {
+            foreach( NodeTree* l, d_leafs )
+                delete l;
+        }
+        void addLeaf(const Node* n)
+        {
+            foreach( NodeTree* l, d_leafs )
+            {
+                if( l->d_node == n )
+                    return;
+            }
+            NodeTree* nt = new NodeTree(d_k+1, n);
+            d_leafs.append(nt);
+        }
+    };
 
     // NOTE: weil alle Symbole denselben String verwenden auf Adresse als Hash wechseln
     inline uint qHash(const NodeRef& r ) { return r.d_node ? qHash(r.d_node->d_tok.d_val) : 0; }

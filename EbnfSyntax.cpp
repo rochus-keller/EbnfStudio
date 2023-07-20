@@ -762,13 +762,23 @@ void EbnfSyntax::checkPredicates(Ast::Node* node)
     Q_ASSERT( node != 0 );
     if( node->d_type == Ast::Node::Predicate )
     {
-        const QByteArray val = node->d_tok.d_val.toBa();
+        const QByteArray val = node->d_tok.d_val.toBa().trimmed();
         if( val.startsWith("LL:") )
         {
             bool ok;
             const quint32 p = val.mid(3).trimmed().toUInt(&ok);
-            if( !ok || p < 2 )
+            if( !ok || p < 1 )
                 error( d_errs, EbnfErrors::Semantics, node->d_tok, "invalid LL predicate" );
+        }else if( val.startsWith("LL(") )
+        {
+            if( val.endsWith(')') )
+            {
+                bool ok;
+                const quint32 p = val.mid(3, val.size() - 3 - 1).trimmed().toUInt(&ok);
+                if( ok && p >= 1)
+                    return;
+            }
+            error( d_errs, EbnfErrors::Semantics, node->d_tok, "invalid LL predicate" );
         }else if( val.startsWith("LA:") )
         {
             LaParser p;
@@ -942,6 +952,18 @@ int Ast::Node::getLlk() const
     if( d_type != Predicate || !val.startsWith("LL:") )
         return 0;
     return val.mid(3).toUInt(); // validity was already checked in EbnfParser
+}
+
+int Ast::Node::getLl() const
+{
+    QByteArray val = d_tok.d_val;
+    if( d_type != Predicate || !val.startsWith("LL(") )
+        return 0;
+    const int pos = val.indexOf(')',3);
+    if( pos == -1 )
+        return 0;
+    val = val.mid(3,pos-3);
+    return val.toUInt();
 }
 
 QByteArray Ast::Node::getLa() const

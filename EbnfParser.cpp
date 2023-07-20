@@ -122,7 +122,7 @@ bool EbnfParser::error(const EbnfToken& t, const QString& msg)
 
 Ast::Node*EbnfParser::parseFactor()
 {
-    // factor ::= keyword | delimiter | category | "[" expression "]" | "{" expression "}"
+    // factor ::= keyword | delimiter | nonterm | "[" expression "]" | "{" expression "}" | "(" expression ")"
 
     Ast::Node* node = 0;
 
@@ -130,7 +130,7 @@ Ast::Node*EbnfParser::parseFactor()
     {
     case EbnfToken::Keyword:
     case EbnfToken::Literal:
-        node = new Ast::Node( Ast::Node::Terminal, d_def, d_cur );
+        node = new Ast::Node( Ast::Node::Terminal, d_def, d_cur, d_cur.d_type == EbnfToken::Literal );
         nextToken();
         break;
     case EbnfToken::NonTerm:
@@ -198,7 +198,7 @@ Ast::Node*EbnfParser::parseFactor()
         }
         break;
     default:
-        error( d_cur, "expecting keyword, delimiter, category, '{' or '['" );
+        error( d_cur, "expecting keyword, delimiter, nonterm, '{' or '['" );
         return 0;
     }
     return node;
@@ -207,6 +207,7 @@ Ast::Node*EbnfParser::parseFactor()
 Ast::Node*EbnfParser::parseExpression()
 {
     // expression ::= term { "|" term }
+    // alternative
 
     Ast::Node* node = 0;
 
@@ -256,6 +257,7 @@ Ast::Node*EbnfParser::parseExpression()
 Ast::Node*EbnfParser::parseTerm()
 {
     // term ::= [ predicate ] factor { factor }
+    // sequence
 
     Ast::Node* node = 0;
 

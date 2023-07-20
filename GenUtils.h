@@ -30,6 +30,7 @@ public:
     static TokMap s_tokMap;
     static QString escapeDollars(QString name );
     static bool containsAlnum( const QString& str );
+    static bool looksLikeKeyword( const QString& str );
     static QString symToString(const QString& sym );
     static QString charToString(QChar );
     static QStringList orderedTokenList(const QSet<QString>& tokens, bool applySymToString = true );
