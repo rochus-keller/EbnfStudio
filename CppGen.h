@@ -40,6 +40,7 @@ private:
     FirstFollowSet* d_tbl;
     EbnfSyntax* d_syn;
     bool d_pseudoKeywords;
+    bool d_genSynTree;
 };
 
 #endif // CPPGEN_H
