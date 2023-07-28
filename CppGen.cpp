@@ -106,7 +106,7 @@ bool CppGen::generate(const QString& ebnfPath, EbnfSyntax* syn, FirstFollowSet* 
 
         if( d->d_tok.d_op == EbnfToken::Skip || ( i != 0 && d->d_usedBy.isEmpty() ) )
             continue;
-        if( d->d_node == 0 || d->d_tok.d_op == EbnfToken::Transparent )
+        if( d->d_node == 0 ) // || d->d_tok.d_op == EbnfToken::Transparent )
             continue;
 
         hout << "\t\t" << "void " << d->d_tok.d_val.toStr() << (d_genSynTree ? "(SynTree*);": "();") << endl;
@@ -147,7 +147,7 @@ bool CppGen::generate(const QString& ebnfPath, EbnfSyntax* syn, FirstFollowSet* 
 
         if( d->d_tok.d_op == EbnfToken::Skip || ( i != 0 && d->d_usedBy.isEmpty() ) )
             continue;
-        if( d->d_node == 0  || d->d_tok.d_op == EbnfToken::Transparent )
+        if( d->d_node == 0 ) // || d->d_tok.d_op == EbnfToken::Transparent )
             continue;
 
         bout << "static inline bool FIRST_" << d->d_tok.d_val.toStr() << "(int tt) {" << endl;
@@ -286,7 +286,7 @@ bool CppGen::generate(const QString& ebnfPath, EbnfSyntax* syn, FirstFollowSet* 
 
         if( d->d_tok.d_op == EbnfToken::Skip || ( i != 0 && d->d_usedBy.isEmpty() ) )
             continue;
-        if( d->d_node == 0 || d->d_tok.d_op == EbnfToken::Transparent )
+        if( d->d_node == 0 ) // || d->d_tok.d_op == EbnfToken::Transparent )
             continue;
 
         bout << "void Parser::" << d->d_tok.d_val.toStr() << (d_genSynTree ?"(SynTree* st) {":"() {") << endl;
