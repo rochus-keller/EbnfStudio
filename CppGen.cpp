@@ -261,6 +261,8 @@ bool CppGen::generate(const QString& ebnfPath, EbnfSyntax* syn, FirstFollowSet* 
             "la.d_lineNr, la.d_colNr, la.d_sourcePath); return false; }" << endl;
     bout << "}" << endl << endl;
 
+    bout << "static inline void dummy() {}" << endl;
+
     if( d_genSynTree )
     {
         bout << "\t" << "void Parser::addTerminal(SynTree* st) {" << endl;
@@ -353,6 +355,8 @@ void CppGen::writeCond( QTextStream& out, bool loop, const QList<const Ast::Node
         case Ast::Node::Predicate:
             handlePredicate(out, n);
             break;
+        default:
+            break;
         }
     }
     out << " ) {" << endl;
@@ -420,7 +424,7 @@ void CppGen::writeNode(QTextStream& out, Ast::Node* node, int level)
                 out << ws(level) << "} else ";
             else
                 out << ws(level);
-            writeCond(out, false, findFirstsOf(node->d_subs[i]));
+            writeCond(out, false, findFirstsOf(node->d_subs[i], true));
             writeNode( out, node->d_subs[i], level+1 );
         }
         out << ws(level) << "} else" << endl;
@@ -590,58 +594,50 @@ void CppGen::handlePredicate(QTextStream& out, const Ast::Node* pred)
         qWarning() << "CppGen unknown predicate" << pred->d_tok.d_val.toStr();
 }
 
-QList<const Ast::Node*> CppGen::findFirstsOf(Ast::Node* node) const
+QList<const Ast::Node*> CppGen::findFirstsOf(Ast::Node* node, bool checkFollowSet) const
 {
     QList<const Ast::Node*> res;
-    switch( node->d_type )
+    // TODO why not just d_tbl->getFirstNodeSet(node).toList() ?
+    if( node->d_type == Ast::Node::Terminal || node->d_type == Ast::Node::Nonterminal )
     {
-    case Ast::Node::Terminal:
-    case Ast::Node::Nonterminal:
         res.append(node);
-        return res;
-    case Ast::Node::Predicate:
-        break;
-    }
-    Q_ASSERT( node->d_type == Ast::Node::Alternative || node->d_type == Ast::Node::Sequence );
-    for( int i = 0; i < node->d_subs.size(); i++ )
+    }else
     {
-        Ast::Node* sub = node->d_subs[i];
-
-        if( sub->d_tok.d_op == EbnfToken::Skip )
-            continue;
-        if( sub->d_def && sub->d_def->d_tok.d_op == EbnfToken::Skip )
-            continue;
-
-        switch( sub->d_type )
+        Q_ASSERT( node->d_type == Ast::Node::Alternative || node->d_type == Ast::Node::Sequence );
+        for( int i = 0; i < node->d_subs.size(); i++ )
         {
-        case Ast::Node::Predicate:
-            Q_ASSERT( node->d_type == Ast::Node::Sequence && res.isEmpty() );
-            res.append(sub);
-            return res;
-        case Ast::Node::Terminal:
-        case Ast::Node::Nonterminal:
-            res.append(sub);
-            break;
-        case Ast::Node::Alternative:
-        case Ast::Node::Sequence:
-            res += findFirstsOf(sub);
-            break;
-        }
+            Ast::Node* sub = node->d_subs[i];
 
-        if( node->d_type == Ast::Node::Alternative && sub->d_quant != Ast::Node::One )
-        {
-            // apparently nullable
-            res += d_tbl->getFollowNodeSet(sub).toList();
-        }else if( node->d_type == Ast::Node::Sequence )
-        {
-            if( sub->d_quant == Ast::Node::One )
-                break; // stop after the first non-optional
-            else if( i == node->d_subs.size()-1 )
+            if( sub->d_tok.d_op == EbnfToken::Skip )
+                continue;
+            if( sub->d_def && sub->d_def->d_tok.d_op == EbnfToken::Skip )
+                continue;
+
+            switch( sub->d_type )
             {
-                // apparently nullable
-                res += d_tbl->getFollowNodeSet(sub).toList();
+            case Ast::Node::Predicate:
+                Q_ASSERT( node->d_type == Ast::Node::Sequence && res.isEmpty() );
+                res.append(sub);
+                return res;
+            case Ast::Node::Terminal:
+            case Ast::Node::Nonterminal:
+                res.append(sub);
+                break;
+            case Ast::Node::Alternative:
+            case Ast::Node::Sequence:
+                res += findFirstsOf(sub);
+                break;
             }
+
+            if( node->d_type == Ast::Node::Sequence && !sub->isNullable() )
+                break; // stop after the first non-optional
         }
+    }
+    if( checkFollowSet && node->isNullable() )
+    {
+        // if an option in an alternative is nullable then the the stuff behind the alternative must
+        // be visible otherwise no option of the alternative might fit.
+        res += d_tbl->getFollowNodeSet(node).toList();
     }
     return res;
 }

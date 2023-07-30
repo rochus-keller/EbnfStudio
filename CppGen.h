@@ -34,7 +34,7 @@ public:
 protected:
     void writeNode(QTextStream& out, Ast::Node* node, int level);
     void handlePredicate(QTextStream& out, const Ast::Node* pred);
-    QList<const Ast::Node*> findFirstsOf(Ast::Node*) const;
+    QList<const Ast::Node*> findFirstsOf(Ast::Node*, bool checkFollowSet = false) const;
     void writeCond( QTextStream& out, bool loop, const QList<const Ast::Node*>& firsts );
 private:
     FirstFollowSet* d_tbl;
