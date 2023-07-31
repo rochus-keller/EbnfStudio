@@ -261,7 +261,7 @@ bool CppGen::generate(const QString& ebnfPath, EbnfSyntax* syn, FirstFollowSet* 
             "la.d_lineNr, la.d_colNr, la.d_sourcePath); return false; }" << endl;
     bout << "}" << endl << endl;
 
-    bout << "static inline void dummy() {}" << endl;
+    bout << "static inline void dummy() {}" << endl << endl;
 
     if( d_genSynTree )
     {
