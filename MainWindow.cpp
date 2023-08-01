@@ -451,6 +451,15 @@ void MainWindow::onGenCpp()
     SynTreeGen::generateTree( d_edit->getPath(), syn, true );
 }
 
+void MainWindow::onGenVisitor()
+{
+    ENABLED_IF( !d_edit->getPath().isEmpty() );
+    loadTokMap();
+    CppGen gen;
+    QFileInfo info(d_edit->getPath());
+    gen.writeVisitor( info.absoluteDir().absoluteFilePath( "Visitor.cpp" ), d_edit->getSyntax(), d_tbl );
+}
+
 void MainWindow::onGenAntlr()
 {
     ENABLED_IF( !d_edit->getPath().isEmpty() );
@@ -705,6 +714,7 @@ void MainWindow::createMenus()
 
     Gui::AutoMenu* generate = new Gui::AutoMenu( tr("Generate"), this, true );
     generate->addCommand( "Generate C++ Parser", this, SLOT(onGenCpp()) );
+    generate->addCommand( "Generate C++ Visitor", this, SLOT(onGenVisitor()) );
     generate->addCommand( "Generate SynTree", this, SLOT(onGenSynTree()) );
     generate->addCommand( "Generate TokenTypes", this, SLOT(onGenTt()) );
     generate->addCommand( "Generate Html", this, SLOT(onGenHtml()) );
