@@ -31,11 +31,17 @@ GenUtils::GenUtils()
 QString GenUtils::escapeDollars(QString name)
 {
     const char dollar = '$';
+    const char dot = '.';
     if( name.startsWith( dollar ))
         name = "dlr_" + name.mid(1);
     if( name.endsWith(dollar))
         name = name.left(name.size()-1) + "_dlr";
     name.replace(dollar,"_dlr_");
+    if( name.startsWith( dot ))
+        name = "dot_" + name.mid(1);
+    if( name.endsWith(dot))
+        name = name.left(name.size()-1) + "_dot";
+    name.replace(dot,"_dot_");
     name.replace('-','_');
     return name;
 }
