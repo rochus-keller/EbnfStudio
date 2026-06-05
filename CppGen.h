@@ -32,10 +32,12 @@ public:
     CppGen();
     bool generate(const QString& ebnfPath, EbnfSyntax*, FirstFollowSet*);
     bool writeVisitor(const QString& path, EbnfSyntax*, FirstFollowSet*);
+    bool d_exact;
 protected:
     void writeNode(QTextStream& out, Ast::Node* node, int level);
     void writeNode2(QTextStream& out, Ast::Node* node, QSet<EbnfToken::Sym>& unique);
     void handlePredicate(QTextStream& out, const Ast::Node* pred);
+    void handlePredicateExact(QTextStream& out, const Ast::Node* pred);
     QList<const Ast::Node*> findFirstsOf(Ast::Node*, bool checkFollowSet = false) const;
     void writeCond( QTextStream& out, bool loop, const QList<const Ast::Node*>& firsts );
 private:

@@ -70,6 +70,7 @@ protected slots:
     void onTransformAlgolEbnf();
     void onCopyIssue();
     void onCopyAllIssues();
+    void onExact();
 
 protected:
     void createMenus();
@@ -92,6 +93,7 @@ private:
     QLabel* d_errText;
     SyntaxTreeMdl* d_mdl;
     FirstFollowSet* d_tbl;
+    bool d_exact;
 };
 
 #endif // MAINWINDOW_H

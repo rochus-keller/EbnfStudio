@@ -39,7 +39,8 @@ let exe ! : Executable {
 		./EbnfParser.cpp 
 		./EbnfErrors.cpp 
 		./EbnfAnalyzer.cpp 
-		./SynTreeGen.cpp 
+        ./EbnfAnalyzer2.cpp
+        ./SynTreeGen.cpp
 		./HtmlSyntax.cpp 
 		./SyntaxTreeMdl.cpp 
 		./GenUtils.cpp 

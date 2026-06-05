@@ -31,6 +31,7 @@ CONFIG(debug, debug|release) {
 QMAKE_CXXFLAGS += -Wno-reorder -Wno-unused-parameter -Wno-unused-function -Wno-unused-variable
 
 SOURCES += main.cpp\
+    EbnfAnalyzer2.cpp \
         MainWindow.cpp \
     EbnfEditor.cpp \
     EbnfHighlighter.cpp \
@@ -54,6 +55,7 @@ SOURCES += main.cpp\
     CppGen.cpp
 
 HEADERS  += MainWindow.h \
+    EbnfAnalyzer2.h \
     EbnfEditor.h \
     EbnfHighlighter.h \
     EbnfLexer.h \
@@ -62,6 +64,7 @@ HEADERS  += MainWindow.h \
     EbnfParser.h \
     EbnfErrors.h \
     EbnfAnalyzer.h \
+    EbnfVersion.h \
     SynTreeGen.h \
     HtmlSyntax.h \
     SyntaxTreeMdl.h \

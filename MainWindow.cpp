@@ -32,6 +32,7 @@
 #include "FirstFollowSet.h"
 #include "AntlrGen.h"
 #include "CppGen.h"
+#include "EbnfAnalyzer2.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QtDebug>
@@ -51,7 +52,7 @@
 #include <GuiTools/AutoMenu.h>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
+    : QMainWindow(parent),d_exact(false)
 {
     d_tbl = new FirstFollowSet(this);
     d_edit = new EbnfEditor(this);
@@ -528,9 +529,19 @@ void MainWindow::onFindAmbig()
 {
     ENABLED_IF(true);
 
-    EbnfAnalyzer a;
     d_tbl->setSyntax(d_edit->getSyntax());
-    a.checkForAmbiguity( d_tbl, d_edit->getErrs() );
+    if( d_exact )
+    {
+        // ~1000 times more expensive!
+        QApplication::setOverrideCursor( Qt::WaitCursor);
+        EbnfAnalyzer2 a;
+        a.checkForAmbiguity( d_tbl, d_edit->getErrs() );
+        QApplication::restoreOverrideCursor();
+    }else
+    {
+        EbnfAnalyzer a;
+        a.checkForAmbiguity( d_tbl, d_edit->getErrs() );
+    }
     d_edit->updateExtraSelections();
 }
 
@@ -670,6 +681,13 @@ void MainWindow::onCopyAllIssues()
     QApplication::clipboard()->setText(text);
 }
 
+void MainWindow::onExact()
+{
+    CHECKED_IF(true,d_exact);
+
+    d_exact = !d_exact;
+}
+
 void MainWindow::createMenus()
 {
     Gui::AutoMenu* file = new Gui::AutoMenu( tr("File"), this, true );
@@ -711,6 +729,7 @@ void MainWindow::createMenus()
     Gui::AutoMenu* analyze = new Gui::AutoMenu( tr("Analyze"), this, true );
     //analyze->addCommand( "Calculate First Set", this, SLOT(onOutputFirstSet()) );
     analyze->addCommand( "Find ambiguities", this, SLOT(onFindAmbig() ), tr("CTRL+SHIFT+A"), true );
+    analyze->addCommand( "Use exact algorithm", this, SLOT(onExact() ) );
 
     Gui::AutoMenu* generate = new Gui::AutoMenu( tr("Generate"), this, true );
     generate->addCommand( "Generate C++ Parser", this, SLOT(onGenCpp()) );

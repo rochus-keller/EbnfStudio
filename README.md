@@ -1,11 +1,23 @@
 ![icon](http://software.rochus-keller.ch/ebnfstudio_icon_128.png)
 ## Welcome to EbnfStudio 
 
-EbnfStudio is a development environment for EBNF files which supports syntax highlighting, inline warnings, symbol navigation and cross-referencing. The grammar is automatically analyzed for syntax errors, missing non-terminals and left recursion while editing. The grammar can also be checked for LL(1) ambiguities and the effectiveness of conflict resolvers. EbnfStudio allows to keep grammars implementation-free; this also applies to the conflict resolvers which are terminals of the form \LL:k\ with k > 1. The current implementation supports the generation of input files to the Coco/R, LLnextgen and ANTLR parser generators, but currently conflict resolvers and the automatic generation of syntax trees are only supported for Coco/R.
-
-EbnfStudio is work in progress. It is currently used as a replacement for VerilogEbnf and to add parts of SystemVerilog to the existing LL(1) Verilog 05 syntax.
+EbnfStudio is a development environment for EBNF files which supports syntax highlighting, inline warnings, symbol navigation and cross-referencing. The grammar is automatically analyzed for syntax errors, missing non-terminals and left recursion while editing. The grammar can also be checked for LL(1) ambiguities and the effectiveness of conflict resolvers. EbnfStudio allows to keep grammars implementation-free; this also applies to the conflict resolvers which are terminals of the form \LL:k\ with k > 1 or \LA: ...\ constructs. The current implementation supports the generation of a C++ parser, but also input files to the Coco/R, LLnextgen and ANTLR parser generators (currently conflict resolvers and the automatic generation of syntax trees are only supported for Coco/R and C++).
 
 ![alt text](http://software.rochus-keller.ch/ebnfstudio_screenshot_1.png "EbnfStudio Screenshot")
+
+### Update on 2026-06-05
+
+I have successfully used EbnfStudio since 2019 with different expansion stages over the years for all my parser projects (and there were many!). My implementation so far used an approximation of LL(k), mostly to reduce complexity and support high performance (i.e. real-time) analysis. 
+
+I now eventually decided to implement an exact LL(k) analyzer and make comparisons. Interestingly, the results for Micron, Ao, LisaPascal, Luon, Sdf and Simula67 are exactly the same. Algol60 finds two issues (instead of none), Verilog 243 vs 247 (note that I haven't touched the Verilog syntax sind 2021 and the errors are due to the analyzer changes in 2023), Cedar 32 vs 30 (dito), FreePascal 14 vs 16, Lua 14 vs 12, Oberon 2 vs 0. So all in all my approximation turned out to be pretty good in retrospect!
+
+On the generator side, I added the new LL:k expansion as the default option to the C++ generator only (I no longer use the others). I also added a command line version for easier integration with headless toolchains.
+
+### Precompiled versions
+
+The following pre-build versions are available:
+
+- [Linux x86_64](http://software.rochus-keller.ch/EbnfStudio_linux_x64.tar.gz)
 
 ### Build Steps
 Follow these steps if you intend to build EbnfStudio using Qt:

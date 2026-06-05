@@ -1,5 +1,5 @@
 /*
-* Copyright 2023 Rochus Keller <mailto:me@rochus-keller.ch>
+* Copyright 2023, 2026 Rochus Keller <mailto:me@rochus-keller.ch>
 *
 * This file is part of the EbnfStudio application.
 *
@@ -21,13 +21,14 @@
 #include "GenUtils.h"
 #include "FirstFollowSet.h"
 #include "EbnfAnalyzer.h"
+#include "EbnfAnalyzer2.h"
 #include "LaParser.h"
 #include <QFile>
 #include <QTextStream>
 #include <QDir>
 #include <QtDebug>
 
-CppGen::CppGen():d_tbl(0),d_syn(0),d_pseudoKeywords(false),d_genSynTree(false)
+CppGen::CppGen():d_tbl(0),d_syn(0),d_pseudoKeywords(false),d_genSynTree(false),d_exact(true)
 {
 
 }
@@ -657,6 +658,11 @@ void CppGen::handlePredicate(QTextStream& out, const Ast::Node* pred)
     int ll = pred->getLlk();
     if( ll > 0 )
     {
+        if( d_exact )
+        {
+            handlePredicateExact(out, pred);
+            return;
+        }
         EbnfAnalyzer::LlkNodes llkNodes;
         EbnfAnalyzer::calcLlkFirstSet( ll, llkNodes,pred->d_parent, d_tbl );
         if( llkNodes.isEmpty() )
@@ -693,17 +699,75 @@ void CppGen::handlePredicate(QTextStream& out, const Ast::Node* pred)
         out << ") ";
         return;
     }
-#if 0
-    ll = pred->getLl();
-    if( ll > 0 )
-    {
-        // TODO: this is unfinished work
-        Ast::NodeTree nt;
-        EbnfAnalyzer::calcLlkFirstSet(ll, &nt, pred->d_parent, d_tbl );
-    }
-#endif
     else
         qWarning() << "CppGen unknown predicate" << pred->d_tok.d_val.toStr();
+}
+
+void CppGen::handlePredicateExact(QTextStream& out, const Ast::Node* pred)
+{
+    const int ll = pred->getLlk();
+    if( ll <= 0 )
+        return;
+
+    LlkSequenceSet seqs = EbnfAnalyzer2::computeFirstKForNode(ll, pred->d_parent, d_syn);
+    seqs.remove(LlkSequence()); // remove epsilon, only "take" paths
+    if( seqs.isEmpty() )
+        return;
+
+    // sort sequences for deterministic output
+    QList<LlkSequence> sorted = seqs.toList();
+    for( int i = 0; i < sorted.size() - 1; i++ )
+    {
+        for( int j = i + 1; j < sorted.size(); j++ )
+        {
+            const LlkSequence& a = sorted[i];
+            const LlkSequence& b = sorted[j];
+            const int len = qMin(a.size(), b.size());
+            bool swap = false;
+            for( int p = 0; p < len; p++ )
+            {
+                const QString na = a[p].d_node->d_tok.d_val.toStr();
+                const QString nb = b[p].d_node->d_tok.d_val.toStr();
+                if( na < nb )
+                    break;
+                if( na > nb )
+                {
+                    swap = true;
+                    break;
+                }
+            }
+            if( !swap && a.size() > b.size() )
+                swap = true;
+            if( swap )
+                sorted.swap(i, j);
+        }
+    }
+
+    // generate disjunction of conjunctions:
+    // (peek(1)==A && peek(2)==X) || (peek(1)==B && peek(2)==Y) || ...
+    out << "( ";
+    for( int s = 0; s < sorted.size(); s++ )
+    {
+        if( s != 0 )
+            out << "|| ";
+        const LlkSequence& seq = sorted[s];
+        if( sorted.size() > 1 && seq.size() > 1 )
+            out << "( ";
+        for( int i = 0; i < seq.size(); i++ )
+        {
+            if( i != 0 )
+                out << "&& ";
+            const Ast::Node* n = seq[i].d_node;
+            const QString tokName = "Tok_" + GenUtils::symToString(n->d_tok.d_val.toStr());
+            if( d_pseudoKeywords && n->d_literal && GenUtils::looksLikeKeyword(n->d_tok.d_val.toStr()) )
+                out << "peek(" << i+1 << ").d_code == " << tokName << " ";
+            else
+                out << "peek(" << i+1 << ").d_type == " << tokName << " ";
+        }
+        if( sorted.size() > 1 && seq.size() > 1 )
+            out << ") ";
+    }
+    out << ") ";
 }
 
 QList<const Ast::Node*> CppGen::findFirstsOf(Ast::Node* node, bool checkFollowSet) const

@@ -18,6 +18,7 @@
 */
 
 #include "MainWindow.h"
+#include "EbnfVersion.h"
 #include <QApplication>
 #include <QFileInfo>
 
@@ -27,7 +28,7 @@ int main(int argc, char *argv[])
     a.setOrganizationName("Rochus Keller");
     a.setOrganizationDomain("github.com/rochus-keller/EbnfStudio");
     a.setApplicationName("EbnfStudio");
-    a.setApplicationVersion("0.9.12");
+    a.setApplicationVersion(EBNF_VERSION);
 
     QIcon icon;
     icon.addFile( ":/images/icon_16.png" );
