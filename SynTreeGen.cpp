@@ -244,6 +244,8 @@ static inline QString escChar( QChar c )
 {
     if( c == '\'' )
         return "\\'";
+    else if( c == '\\')
+        return "\\\\";
     else
         return QString(1,c);
 }

@@ -19,7 +19,6 @@
 
 #include "GenUtils.h"
 #include <QtDebug>
-#include <QHash>
 
 GenUtils::TokMap GenUtils::s_tokMap;
 
@@ -169,6 +168,10 @@ QString GenUtils::charToString(QChar c)
         return "Dlr";
     case '"':
         return "Quote";
+    case '\'':
+        return "Tick";
+    case '\\':
+        return "Bslash";
     default:
         return QString::number( c.unicode(), 16 );
     }

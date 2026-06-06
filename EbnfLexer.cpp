@@ -265,7 +265,7 @@ EbnfToken EbnfLexer::attribute()
 
 EbnfToken EbnfLexer::literal()
 {
-    int off = 1;
+    int off = 1; // skip starting '
     while( true )
     {
         if( (d_colNr+off) < d_line.size() && d_line[d_colNr+off] == '\\' )
@@ -274,6 +274,8 @@ EbnfToken EbnfLexer::literal()
             break;
         off++;
     }
+    if( d_line[d_colNr+off] != '\'' )
+        return token( EbnfToken::Invalid, 0, "non-terminated literal");
     QString str = d_line.mid(d_colNr + 1, off - 1 );
     str.replace("\\'", "'");
     str.replace("\\\\", "\\");

@@ -22,6 +22,7 @@
 
 #include <QString>
 #include <QSet>
+#include <QHash>
 
 class GenUtils
 {

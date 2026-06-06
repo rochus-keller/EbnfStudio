@@ -155,60 +155,33 @@ bool CppGen::generate(const QString& ebnfPath, EbnfSyntax* syn, FirstFollowSet* 
         //EbnfAnalyzer::LlkNodes firsts;
         //EbnfAnalyzer::calcLlkFirstSet(1,firsts,d->d_node,tbl);
         Ast::NodeRefSet ns = tbl->getFirstSet(d->d_node);
-#if 0
-        const bool same = firsts.first() == ns;
-        if( !same )
-        {
-            qDebug() << "diff in" << d->d_tok.d_val.toBa().constData() << ns.size() << firsts.first().size();
-            QStringList sort;
-            Ast::NodeRefSet::const_iterator j;
-            for( j = ns.begin(); j != ns.end(); ++j )
-                sort << (*j).d_node->d_tok.d_val.toStr();
-            sort.sort(Qt::CaseInsensitive);
-            qDebug() << sort.join(' ');
-            sort.clear();
-            for( j = firsts.first().begin(); j != firsts.first().end(); ++j )
-                sort << (*j).d_node->d_tok.d_val.toStr();
-            sort.sort(Qt::CaseInsensitive);
-            qDebug() << sort.join(' ');
-        }
-#endif
-#if 0
-        qDebug() << d->d_tok.d_val.toBa();
+
         QStringList sort;
-        Ast::NodeRefSet::const_iterator j;
-        for( j = ns.begin(); j != ns.end(); ++j )
-            sort << "T_"+GenUtils::symToString((*j).d_node->d_tok.d_val.toStr());
-        sort.sort(Qt::CaseInsensitive);
-        qDebug() << "First:" << sort.join(' ');
-        sort.clear();
-        Ast::NodeRefSet follow = tbl->getFollowSet(d->d_node);
-        for( j = follow.begin(); j != follow.end(); ++j )
-            sort << "T_"+GenUtils::symToString((*j).d_node->d_tok.d_val.toStr());
-        sort.sort(Qt::CaseInsensitive);
-        qDebug() << "Follow:" << sort.join(' ');
-        qDebug() << "";
-#endif
+        for( Ast::NodeRefSet::const_iterator j = ns.begin(); j != ns.end(); ++j )
+        {
+            const Ast::Node* n = (*j).d_node;
+            sort << GenUtils::symToString(n->d_tok.d_val.toStr());
+        }
+        qSort(sort);
+
         if( ns.isEmpty() )
             bout << "\t" << "return false;" << endl;
         else if( ns.size() <= 5 )
         {
             bout << "\t" << "return ";
-            for( Ast::NodeRefSet::const_iterator j = ns.begin(); j != ns.end(); ++j )
+            for( int j = 0; j < sort.size(); j++ )
             {
-                if( j != ns.begin() )
+                if( j != 0 )
                     bout << " || ";
-                const Ast::Node* n = (*j).d_node;
-                bout << "tt == Tok_" << GenUtils::symToString(n->d_tok.d_val.toStr());
+                bout << "tt == Tok_" << sort[j];
             }
             bout << ";" << endl;
         }else
         {
             bout << "\t" << "switch(tt){" << endl;
-            for( Ast::NodeRefSet::const_iterator j = ns.begin(); j != ns.end(); ++j )
+            for( int j = 0; j < sort.size(); j++ )
             {
-                const Ast::Node* n = (*j).d_node;
-                bout << "\t" << "case Tok_" << GenUtils::symToString(n->d_tok.d_val.toStr()) << ":" << endl;
+                bout << "\t" << "case Tok_" << sort[j] << ":" << endl;
             }
             bout << "\t\t" << "return true;" << endl;
             bout << "\t" << "default: return false;" << endl;
